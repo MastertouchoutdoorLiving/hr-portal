@@ -8,6 +8,20 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+<script>
+firebase.initializeApp({
+  apiKey:"AIzaSyA9VVP_o-9xNhg7XcXAsYLiLxasA-YIOaU",
+  authDomain:"mastertouch-hr-portal.firebaseapp.com",
+  databaseURL:"https://mastertouch-hr-portal-default-rtdb.firebaseio.com",
+  projectId:"mastertouch-hr-portal",
+  storageBucket:"mastertouch-hr-portal.firebasestorage.app",
+  messagingSenderId:"236820258636",
+  appId:"1:236820258636:web:9b27fa75ac46d75879f9e9"
+});
+const fbDB=firebase.database();
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,-apple-system,sans-serif;background:#f8fafc}
@@ -56,10 +70,20 @@ tr:hover{background:#f8fafc}
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const{useState,useEffect,useCallback}=React;
+const{useState,useEffect,useCallback,useRef}=React;
 const LS=(k,d)=>{try{const v=localStorage.getItem('mtp_'+k);return v?JSON.parse(v):d}catch{return d}};
 const SS=(k,v)=>{try{localStorage.setItem('mtp_'+k,JSON.stringify(v))}catch{}};
-const useLS=(k,d)=>{const[v,set]=useState(()=>LS(k,d));useEffect(()=>{SS(k,v)},[k,v]);return[v,set]};
+const useLS=(k,d)=>{
+const[v,setV]=useState(()=>LS(k,d));
+const skip=useRef(false);
+useEffect(()=>{
+const ref=fbDB.ref('hr/'+k);
+ref.on('value',snap=>{const data=snap.val();if(data!==null&&data!==undefined){skip.current=true;setV(data);SS(k,data)}});
+return()=>ref.off();
+},[k]);
+useEffect(()=>{if(skip.current){skip.current=false;return}SS(k,v);fbDB.ref('hr/'+k).set(v).catch(()=>{})},[k,v]);
+return[v,setV];
+};
 const ID=()=>'_'+Math.random().toString(36).substr(2,9);
 const FD=(d)=>d?new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
 const NOW=()=>new Date().toISOString().split('T')[0];
@@ -81,7 +105,7 @@ return(<div className="flex items-center gap-3">
 }
 
 const PAGES=['Dashboard','Employees','Clients','Complaints','Payroll','Job Positions','Applicants','Tasks','Inventory','Messages','Birthdays','Audit Log','Analytics'];
-const ICONS=['ð','ð¥','ð¢','ð','ð°','ð¼','ð','â','ð¦','ð¬','ð','ð','ð'];
+const ICONS=['ð','ð¥','ð¢','ð!,'ð°','ð¼','ð','â','ð¦','ð¬','ð','ð','ð'];
 
 function App(){
 const[page,setPage]=useState('Dashboard');
