@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Master Touch HR Portal</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f8fafc}
+.sidebar{width:240px;background:#1e293b;color:white;height:100vh;position:fixed;overflow-y:auto;transition:transform .3s}
+.main{margin-left:240px;padding:24px;min-height:100vh}
+.card{background:white;border-radius:8px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px}
+.btn{padding:8px 16px;border-radius:6px;font-size:14px;font-weight:500;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:#3b82f6;color:white}.btn-primary:hover{background:#2563eb}
+.btn-danger{background:#ef4444;color:white}.btn-danger:hover{background:#dc2626}
+.btn-outline{background:transparent;border:1px solid #d1d5db;color:#374151}.btn-outline:hover{background:#f3f4f6}
+.btn-success{background:#22c55e;color:white}.btn-success:hover{background:#16a34a}
+input,select,textarea{width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:#3b82f6;box-shadow:0 0 0 2px rgba(59,130,246,.2)}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:500}
+.badge-green{background:#dcfce7;color:#166534}.badge-red{background:#fee2e2;color:#991b1b}
+.badge-yellow{background:#fef9c3;color:#854d0e}.badge-blue{background:#dbeafe;color:#1e40af}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px 12px;border-bottom:1px solid #e2e8f0}
+th{background:#f8fafc;font-weight:600;font-size:13px;color:#64748b;text-transform:uppercase}
+tr:hover{background:#f8fafc}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50}
+.modal{background:white;border-radius:12px;padding:24px;max-width:600px;width:90%;max-height:85vh;overflow-y:auto}
+.stat{background:white;border-radius:8px;border:1px solid #e2e8f0;padding:20px}
+.stat h3{font-size:13px;color:#64748b;margin-bottom:4px}.stat p{font-size:28px;font-weight:700;color:#1e293b}
+.avatar{width:40px;height:40px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-weight:600;color:#64748b;overflow:hidden}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.sidebar-item{padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;border-radius:6px;margin:2px 8px;font-size:14px;transition:all .2s}
+.sidebar-item:hover,.sidebar-item.active{background:rgba(255,255,255,.1)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.flex{display:flex}.flex-col{flex-direction:column}.items-center{align-items:center}
+.justify-between{justify-content:space-between}.gap-2{gap:8px}.gap-3{gap:12px}.gap-4{gap:16px}
+.mb-4{margin-bottom:16px}.mb-2{margin-bottom:8px}.mt-2{margin-top:8px}.mt-4{margin-top:16px}
+.text-sm{font-size:14px}.text-xs{font-size:12px}.text-lg{font-size:18px}.text-xl{font-size:20px}.text-2xl{font-size:24px}
+.font-bold{font-weight:700}.font-medium{font-weight:500}.text-gray{color:#64748b}
+.w-full{width:100%}.p-4{padding:16px}.rounded{border-radius:8px}
+.search-box{position:relative}.search-box input{padding-left:36px}
+.tab-bar{display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:16px}
+.tab{padding:10px 20px;cursor:pointer;font-size:14px;font-weight:500;color:#64748b;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s}
+.tab.active{color:#3b82f6;border-bottom-color:#3b82f6}
+.progress-bar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden}
+.progress-fill{height:100%;background:#3b82f6;border-radius:4px;transition:width .3s}
+@media(max-width:768px){.sidebar{transform:translateX(-100%)}.main{margin-left:0}.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState,useEffect,useCallback}=React;
+const LS=(k,d)=>{try{const v=localStorage.getItem('mtp_'+k);return v?JSON.parse(v):d}catch{return d}};
+const SS=(k,v)=>{try{localStorage.setItem('mtp_'+k,JSON.stringify(v))}catch{}};
+const useLS=(k,d)=>{const[v,set]=useState(()=>LS(k,d));useEffect(()=>{SS(k,v)},[k,v]);return[v,set]};
+const ID=()=>'_'+Math.random().toString(36).substr(2,9);
+const FD=(d)=>d?new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
+const NOW=()=>new Date().toISOString().split('T')[0];
+const log=(logs,setLogs,action,details)=>{const l=[{id:ID(),action,details,timestamp:new Date().toISOString(),user:'Admin'},...logs];setLogs(l.slice(0,200))};
+
+function Modal({open,onClose,title,children}){
+if(!open)return null;
+return(<div className="modal-overlay" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>
+<div className="flex justify-between items-center mb-4"><h2 className="text-xl font-bold">{title}</h2>
+<button className="btn btn-outline" onClick={onClose}>â</button></div>{children}</div></div>);
+}
+
+function PhotoUpload({value,onChange}){
+const handleFile=(e)=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=(ev)=>onChange(ev.target.result);r.readAsDataURL(f)};
+return(<div className="flex items-center gap-3">
+{value?<div className="avatar"><img src={value}/></div>:<div className="avatar">?</div>}
+<input type="file" accept="image/*" onChange={handleFile} style={{fontSize:'12px'}}/>
+</div>);
+}
+
+const PAGES=['Dashboard','Employees','Clients','Complaints','Payroll','Job Positions','Applicants','Tasks','Inventory','Messages','Birthdays','Audit Log','Analytics'];
+const ICONS=['ð','ð¥','ð¢','ð','ð°','ð¼','ð','â','ð¦','ð¬','ð','ð','ð'];
+
+function App(){
+const[page,setPage]=useState('Dashboard');
+const[emps,setEmps]=useLS('emps',[]);
+const[clients,setCli]=useLS('clients',[]);
+const[complaints,setComp]=useLS('complaints',[]);
+const[payroll,setPay]=useLS('payroll',[]);
+const[positions,setPos]=useLS('positions',[]);
+const[applicants,setApp]=useLS('applicants',[]);
+const[tasks,setTasks]=useLS('tasks',[]);
+const[inventory,setInv]=useLS('inventory',[]);
+const[messages,setMsg]=useLS('messages',[]);
+const[logs,setLogs]=useLS('logs',[]);
+const L=(a,d)=>log(logs,setLogs,a,d);
+
+return(<div className="flex">
+<div className="sidebar">
+<div style={{padding:'20px 16px',borderBottom:'1px solid rgba(255,255,255,.1)'}}>
+<h1 className="text-lg font-bold">Master Touch</h1>
+<p className="text-xs" style={{color:'#94a3b8'}}>HR Portal</p>
+</div>
+{PAGES.map((p,i)=>(
+<div key={p} className={`sidebar-item${page===p?' active':''}`} onClick={()=>setPage(p)}>
+<span>{ICONS[i]}</span><span>{p}</span>
+</div>
+))}
+</div>
+<div className="main">
+<div className="flex justify-between items-center mb-4">
+<h1 className="text-2xl font-bold">{page}</h1>
+<span className="text-sm text-gray">{new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</span>
+</div>
+{page==='Dashboard'&&<Dashboard emps={emps} clients={clients} complaints={complaints} tasks={tasks} payroll={payroll}/>}
+{page==='Employees'&&<Employees data={emps} set={setEmps} L={L}/>}
+{page==='Clients'&&<Clients data={clients} set={setCli} L={L}/>}
+{page==='Complaints'&&<Complaints data={complaints} set={setComp} emps={emps} L={L}/>}
+{page==='Payroll'&&<Payroll data={payroll} set={setPay} emps={emps} L={L}/>}
+{page==='Job Positions'&&<Positions data={positions} set={setPos} L={L}/>}
+{page==='Applicants'&&<Applicants data={applicants} set={setApp} positions={positions} L={L}/>}
+{page==='Tasks'&&<Tasks data={tasks} set={setTasks} emps={emps} L={L}/>}
+{page==='Inventory'&&<Inventory data={inventory} set={setInv} L={L}/>}
+{page==='Messages'&&<Messages data={messages} set={setMsg} emps={emps}/>}
+{page==='Birthdays'&&<Birthdays emps={emps}/>}
+{page==='Audit Log'&&<AuditLog data={logs}/>}
+{page==='Analytics'&&<Analytics emps={emps} clients={clients} complaints={complaints} payroll={payroll} tasks={tasks}/>}
+</div>
+</div>);
+}
+
+function Dashboard({emps,clients,complaints,tasks,payroll}){
+const active=complaints.filter(c=>c.status!=='Resolved').length;
+const pending=tasks.filter(t=>t.status!=='Done').length;
+const totalPay=payroll.reduce((s,p)=>s+(p.amount||0),0);
+return(<div>
+<div className="grid-4 mb-4">
+<div className="stat"><h3>Total Employees</h3><p>{emps.length}</p></div>
+<div className="stat"><h3>Active Clients</h3><p>{clients.length}</p></div>
+<div className="stat"><h3>Open Complaints</h3><p style={{color:active>0?'#ef4444':'#22c55e'}}>{active}</p></div>
+<div className="stat"><h3>Pending Tasks</h3><p style={{color:pending>0?'#f59e0b':'#22c55e'}}>{pending}</p></div>
+</div>
+<div className="grid-2">
+<div className="card"><h3 className="font-bold mb-2">Recent Employees</h3>
+{emps.slice(-5).reverse().map(e=>(<div key={e.id} className="flex items-center gap-2 mb-2">
+<div className="avatar">{e.photo?<img src={e.photo}/>:e.name?.[0]||'?'}</div>
+<div><div className="font-medium text-sm">{e.name}</div><div className="text-xs text-gray">{e.position||'N/A'}</div></div>
+</div>))}
+{!emps.length&&<p className="text-sm text-gray">No employees yet</p>}
+</div>
+<div className="card"><h3 className="font-bold mb-2">Recent Tasks</h3>
+{tasks.slice(-5).reverse().map(t=>(<div key={t.id} className="flex justify-between items-center mb-2">
+<span className="text-sm">{t.title}</span>
+<span className={`badge ${t.status==='Done'?'badge-green':t.status==='In Progress'?'badge-blue':'badge-yellow'}`}>{t.status}</span>
+</div>))}
+{!tasks.length&&<p className="text-sm text-gray">No tasks yet</p>}
+</div>
+</div>
+</div>);
+}
+
+function Employees({data,set,L}){
+const[show,setShow]=useState(false);
+const[edit,setEdit]=useState(null);
+const[search,setSearch]=useState('');
+const blank={name:'',email:'',phone:'',position:'',department:'',startDate:NOW(),status:'Active',salary:'',photo:''};
+const[form,setForm]=useState(blank);
+const filtered=data.filter(e=>(e.name||'').toLowerCase().includes(search.toLowerCase()));
+const save=()=>{if(!form.name)return;
+if(edit){set(data.map(e=>e.id===edit?{...form,id:edit}:e));L('Updated Employee',form.name)}
+else{const n={...form,id:ID()};set([...data,n]);L('Added Employee',form.name)}
+setShow(false);setEdit(null);setForm(blank)};
+const del=(id,name)=>{set(data.filter(e=>e.id!==id));L('Deleted Employee',name)};
+const openEdit=(e)=>{setForm(e);setEdit(e.id);setShow(true)};
+return(<div>
+<div className="flex justify-between items-center mb-4">
+<input placeholder="Search employees..." value={search} onChange={e=>setSearch(e.target.value)} style={{maxWidth:300}}/>
+<button className="btn btn-primary" onClick={()=>{setForm(blank);setEdit(null);setShow(true)}}>+ Add Employee</button>
+</div>
+<div className="card" style={{overflow:'auto'}}>
+<table><thead><tr><th>Employee</th><th>Position</th><th>Department</th><th>Status</th><th>Start Date</th><th>Actions</th></tr></thead>
+<tbody>{filtered.map(e=>(<tr key={e.id}>
+<td><div className="flex items-center gap-2">
+<div className="avatar">{e.photo?<img src={e.photo}/>:(e.name||'?')[0]}</div>
+<div><div className="font-medium">{e.name}</div><div className="text-xs text-gray">{e.email}</div></div>
+</div></td>
+<td>{e.position||'-'}</td><td>{e.department||'-'}</td>
+<td><span className={`badge ${e.status==='Active'?'badge-green':'badge-red'}`}>{e.status||'Active'}</span></td>
+<td className="text-sm">{FD(e.startDate)}</td>
+<td><div className="flex gap-2"><button className="btn btn-outline" onClick={()=>openEdit(e)}>Edit</button>
+<button className="btn btn-danger" onClick={()=>del(e.id,e.name)}>Del</button></div></td>
+</tr>))}</tbody></table>
+{!filtered.length&&<p className="text-sm text-gray p-4">No employees found</p>}
+</div>
+<Modal open={show} onClose={()=>{setShow(false);setEdit(null)}} title={edit?'Edit Employee':'Add Employee'}>
+<div className="flex-col gap-3">
+<PhotoUpload value={form.photo} onChange={v=>setForm({...form,photo:v})}/>
+<div className="grid-2 mt-2">
+<div><label className="text-xs font-medium text-gray">Name*</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Email</label><input value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Phone</label><input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Position</label><input value={form.position} onChange={e=>setForm({...form,position:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Department</label><input value={form.department} onChange={e=>setForm({...form,department:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Start Date</label><input type="date" value={form.startDate} onChange={e=>setForm({...form,startDate:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Salary</label><input type="number" value={form.salary} onChange={e=>setForm({...form,salary:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Status</label><select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option>Active</option><option>Inactive</option><option>On Leave</option></select></div>
+</div>
+<div className="flex justify-between mt-4"><button className="btn btn-outline" onClick={()=>{setShow(false);setEdit(null)}}>Cancel</button>
+<button className="btn btn-primary" onClick={save}>{edit?'Update':'Add'} Employee</button></div>
+</div>
+</Modal>
+</div>);
+}
+
+function Clients({data,set,L}){
+const[show,setShow]=useState(false);const[edit,setEdit]=useState(null);const[search,setSearch]=useState('');
+const blank={name:'',email:'',phone:'',company:'',address:'',status:'Active',notes:''};
+const[form,setForm]=useState(blank);
+const filtered=data.filter(c=>(c.name||'').toLowerCase().includes(search.toLowerCase())||(c.company||'').toLowerCase().includes(search.toLowerCase()));
+const save=()=>{if(!form.name)return;
+if(edit){set(data.map(c=>c.id===edit?{...form,id:edit}:c));L('Updated Client',form.name)}
+else{set([...data,{...form,id:ID()}]);L('Added Client',form.name)}
+setShow(false);setEdit(null);setForm(blank)};
+const del=(id,n)=>{set(data.filter(c=>c.id!==id));L('Deleted Client',n)};
+return(<div>
+<div className="flex justify-between items-center mb-4">
+<input placeholder="Search clients..." value={search} onChange={e=>setSearch(e.target.value)} style={{maxWidth:300}}/>
+<button className="btn btn-primary" onClick={()=>{setForm(blank);setEdit(null);setShow(true)}}>+ Add Client</button>
+</div>
+<div className="card" style={{overflow:'auto'}}>
+<table><thead><tr><th>Name</th><th>Company</th><th>Email</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead>
+<tbody>{filtered.map(c=>(<tr key={c.id}>
+<td className="font-medium">{c.name}</td><td>{c.company||'-'}</td><td className="text-sm">{c.email||'-'}</td>
+<td className="text-sm">{c.phone||'-'}</td>
+<td><span className={`badge ${c.status==='Active'?'badge-green':'badge-red'}`}>{c.status}</span></td>
+<td><div className="flex gap-2"><button className="btn btn-outline" onClick={()=>{setForm(c);setEdit(c.id);setShow(true)}}>Edit</button>
+<button className="btn btn-danger" onClick={()=>del(c.id,c.name)}>Del</button></div></td>
+</tr>))}</tbody></table></div>
+<Modal open={show} onClose={()=>{setShow(false);setEdit(null)}} title={edit?'Edit Client':'Add Client'}>
+<div className="grid-2">
+<div><label className="text-xs font-medium text-gray">Name*</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Company</label><input value={form.company} onChange={e=>setForm({...form,company:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Email</label><input value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Phone</label><input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/></div>
+<div style={{gridColumn:'span 2'}}><label className="text-xs font-medium text-gray">Address</label><input value={form.address||''} onChange={e=>setForm({...form,address:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Status</label><select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option>Active</option><option>Inactive</option></select></div>
+<div style={{gridColumn:'span 2'}}><label className="text-xs font-medium text-gray">Notes</label><textarea value={form.notes||''} onChange={e=>setForm({...form,notes:e.target.value})} rows={2}/></div>
+</div>
+<div className="flex justify-between mt-4"><button className="btn btn-outline" onClick={()=>{setShow(false);setEdit(null)}}>Cancel</button>
+<button className="btn btn-primary" onClick={save}>{edit?'Update':'Add'} Client</button></div>
+</Modal>
+</div>);
+}
+
+function Complaints({data,set,emps,L}){
+const[show,setShow]=useState(false);const[edit,setEdit]=useState(null);
+const blank={title:'',description:'',employee:'',priority:'Medium',status:'Open',date:NOW()};
+const[form,setForm]=useState(blank);
+const save=()=>{if(!form.title)return;
+if(edit){set(data.map(c=>c.id===edit?{...form,id:edit}:c));L('Updated Complaint',form.title)}
+else{set([...data,{...form,id:ID()}]);L('Filed Complaint',form.title)}
+setShow(false);setEdit(null);setForm(blank)};
+return(<div>
+<div className="flex justify-between items-center mb-4">
+<div className="flex gap-2">{['All','Open','In Progress','Resolved'].map(s=>(
+<button key={s} className="btn btn-outline text-sm">{s} ({s==='All'?data.length:data.filter(c=>c.status===s).length})</button>
+))}</div>
+<button className="btn btn-primary" onClick={()=>{setForm(blank);setEdit(null);setShow(true)}}>+ File Complaint</button>
+</div>
+<div className="card" style={{overflow:'auto'}}>
+<table><thead><tr><th>Title</th><th>Employee</th><th>Priority</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+<tbody>{data.map(c=>(<tr key={c.id}>
+<td className="font-medium">{c.title}</td>
+<td className="text-sm">{c.employee||'-'}</td>
+<td><span className={`badge ${c.priority==='High'?'badge-red':c.priority==='Medium'?'badge-yellow':'badge-green'}`}>{c.priority}</span></td>
+<td><span className={`badge ${c.status==='Resolved'?'badge-green':c.status==='In Progress'?'badge-blue':'badge-yellow'}`}>{c.status}</span></td>
+<td className="text-sm">{FD(c.date)}</td>
+<td><div className="flex gap-2"><button className="btn btn-outline" onClick={()=>{setForm(c);setEdit(c.id);setShow(true)}}>Edit</button>
+<button className="btn btn-danger" onClick={()=>{set(data.filter(x=>x.id!==c.id));L('Deleted Complaint',c.title)}}>Del</button></div></td>
+</tr>))}</tbody></table></div>
+<Modal open={show} onClose={()=>{setShow(false);setEdit(null)}} title={edit?'Edit Complaint':'File Complaint'}>
+<div className="flex-col gap-3">
+<div><label className="text-xs font-medium text-gray">Title*</label><input value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Description</label><textarea value={form.description||''} onChange={e=>setForm({...form,description:e.target.value})} rows={3}/></div>
+<div className="grid-2">
+<div><label className="text-xs font-medium text-gray">Employee</label><select value={form.employee} onChange={e=>setForm({...form,employee:e.target.value})}><option value="">Select...</option>{emps.map(e=><option key={e.id} value={e.name}>{e.name}</option>)}</select></div>
+<div><label className="text-xs font-medium text-gray">Priority</label><select value={form.priority} onChange={e=>setForm({...form,priority:e.target.value})}><option>Low</option><option>Medium</option><option>High</option></select></div>
+<div><label className="text-xs font-medium text-gray">Status</label><select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option>Open</option><option>In Progress</option><option>Resolved</option></select></div>
+<div><label className="text-xs font-medium text-gray">Date</label><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></div>
+</div>
+</div>
+<div className="flex justify-between mt-4"><button className="btn btn-outline" onClick={()=>{setShow(false);setEdit(null)}}>Cancel</button>
+<button className="btn btn-primary" onClick={save}>{edit?'Update':'Submit'}</button></div>
+</Modal>
+</div>);
+}
+
+function Payroll({data,set,emps,L}){
+const[show,setShow]=useState(false);
+const blank={employee:'',amount:'',period:'',type:'Salary',status:'Pending',date:NOW()};
+const[form,setForm]=useState(blank);
+const total=data.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+const pending=data.filter(p=>p.status==='Pending').reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+const save=()=>{if(!form.employee||!form.amount)return;
+set([...data,{...form,id:ID(),amount:parseFloat(form.amount)}]);L('Added Payroll',`${form.employee}: $${form.amount}`);
+setShow(false);setForm(blank)};
+return(<div>
+<div className="grid-3 mb-4">
+<div className="stat"><h3>Total Payroll</h3><p>${total.toLocaleString()}</p></div>
+<div className="stat"><h3>Pending</h3><p style={{color:'#f59e0b'}}>${pending.toLocaleString()}</p></div>
+<div className="stat"><h3>Records</h3><p>{data.length}</p></div>
+</div>
+<div className="flex justify-between items-center mb-4">
+<h3 className="font-bold">Payroll Records</h3>
+<button className="btn btn-primary" onClick={()=>setShow(true)}>+ Add Record</button>
+</div>
+<div className="card" style={{overflow:'auto'}}>
+<table><thead><tr><th>Employee</th><th>Amount</th><th>Type</th><th>Period</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+<tbody>{data.map(p=>(<tr key={p.id}>
+<td className="font-medium">{p.employee}</td><td className="font-bold">${(p.amount||0).toLocaleString()}</td>
+<td>{p.type}</td><td className="text-sm">{p.period||'-'}</td>
+<td><span className={`badge ${p.status==='Paid'?'badge-green':'badge-yellow'}`}>{p.status}</span></td>
+<td className="text-sm">{FD(p.date)}</td>
+<td><div className="flex gap-2">
+{p.status==='Pending'&&<button className="btn btn-success" onClick={()=>{set(data.map(x=>x.id===p.id?{...x,status:'Paid'}:x));L('Marked Paid',p.employee)}}>Pay</button>}
+<button className="btn btn-danger" onClick={()=>{set(data.filter(x=>x.id!==p.id));L('Deleted Payroll',p.employee)}}>Del</button>
+</div></td></tr>))}</tbody></table></div>
+<Modal open={show} onClose={()=>setShow(false)} title="Add Payroll Record">
+<div className="grid-2">
+<div><label className="text-xs font-medium text-gray">Employee*</label><select value={form.employee} onChange={e=>setForm({...form,employee:e.target.value})}><option value="">Select...</option>{emps.map(e=><option key={e.id} value={e.name}>{e.name}</option>)}</select></div>
+<div><label className="text-xs font-medium text-gray">Amount*</label><input type="number" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Type</label><select value={form.type} onChange={e=>setForm({...form,type:e.target.value})}><option>Salary</option><option>Bonus</option><option>Commission</option><option>Overtime</option></select></div>
+<div><label className="text-xs font-medium text-gray">Period</label><input value={form.period} onChange={e=>setForm({...form,period:e.target.value})} placeholder="e.g. March 2026"/></div>
+<div><label className="text-xs font-medium text-gray">Status</label><select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option>Pending</option><option>Paid</option></select></div>
+</div>
+<div className="flex justify-between mt-4"><button className="btn btn-outline" onClick={()=>setShow(false)}>Cancel</button>
+<button className="btn btn-primary" onClick={save}>Add Record</button></div>
+</Modal>
+</div>);
+}
+
+function Positions({data,set,L}){
+const[show,setShow]=useState(false);const[edit,setEdit]=useState(null);
+const blank={title:'',department:'',type:'Full-time',location:'',status:'Open',description:'',salary:''};
+const[form,setForm]=useState(blank);
+const save=()=>{if(!form.title)return;
+if(edit){set(data.map(p=>p.id===edit?{...form,id:edit}:p));L('Updated Position',form.title)}
+else{set([...data,{...form,id:ID()}]);L('Added Position',form.title)}
+setShow(false);setEdit(null);setForm(blank)};
+return(<div>
+<div className="flex justify-between items-center mb-4">
+<div className="flex gap-2">
+<div className="stat" style={{padding:'12px 20px'}}><h3>Open</h3><p style={{fontSize:20}}>{data.filter(p=>p.status==='Open').length}</p></div>
+<div className="stat" style={{padding:'12px 20px'}}><h3>Filled</h3><p style={{fontSize:20}}>{data.filter(p=>p.status==='Filled').length}</p></div>
+</div>
+<button className="btn btn-primary" onClick={()=>{setForm(blank);setEdit(null);setShow(true)}}>+ Add Position</button>
+</div>
+<div className="grid-2">{data.map(p=>(<div key={p.id} className="card">
+<div className="flex justify-between items-center mb-2"><h3 className="font-bold">{p.title}</h3>
+<span className={`badge ${p.status==='Open'?'badge-green':'badge-blue'}`}>{p.status}</span></div>
+<p className="text-sm text-gray mb-2">{p.department||'No dept'} â¢ {p.type} â¢ {p.location||'Remote'}</p>
+{p.salary&&<p className="text-sm font-medium mb-2">${p.salary}</p>}
+{p.description&&<p className="text-xs text-gray mb-2">{p.description.substring(0,100)}...</p>}
+<div className="flex gap-2 mt-2"><button className="btn btn-outline" onClick={()=>{setForm(p);setEdit(p.id);setShow(true)}}>Edit</button>
+<button className="btn btn-danger" onClick={()=>{set(data.filter(x=>x.id!==p.id));L('Deleted Position',p.title)}}>Del</button></div>
+</div>))}</div>
+{!data.length&&<p className="text-sm text-gray p-4">No positions yet</p>}
+<Modal open={show} onClose={()=>{setShow(false);setEdit(null)}} title={edit?'Edit Position':'Add Position'}>
+<div className="grid-2">
+<div><label className="text-xs font-medium text-gray">Title*</label><input value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Department</label><input value={form.department} onChange={e=>setForm({...form,department:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Type</label><select value={form.type} onChange={e=>setForm({...form,type:e.target.value})}><option>Full-time</option><option>Part-time</option><option>Contract</option></select></div>
+<div><label className="text-xs font-medium text-gray">Location</label><input value={form.location} onChange={e=>setForm({...form,location:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Salary Range</label><input value={form.salary} onChange={e=>setForm({...form,salary:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Status</label><select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option>Open</option><option>Filled</option><option>Closed</option></select></div>
+<div style={{gridColumn:'span 2'}}><label className="text-xs font-medium text-gray">Description</label><textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} rows={3}/></div>
+</div>
+<div className="flex justify-between mt-4"><button className="btn btn-outline" onClick={()=>{setShow(false);setEdit(null)}}>Cancel</button>
+<button className="btn btn-primary" onClick={save}>{edit?'Update':'Add'} Position</button></div>
+</Modal>
+</div>);
+}
+
+function Applicants({data,set,positions,L}){
+const[show,setShow]=useState(false);
+const blank={name:'',email:'',phone:'',position:'',status:'New',resume:'',notes:'',date:NOW()};
+const[form,setForm]=useState(blank);
+const save=()=>{if(!form.name)return;set([...data,{...form,id:ID()}]);L('Added Applicant',form.name);setShow(false);setForm(blank)};
+return(<div>
+<div className="flex justify-between items-center mb-4">
+<div className="flex gap-2">{['New','Screening','Interview','Offer','Hired','Rejected'].map(s=>(
+<span key={s} className={`badge ${s==='Hired'?'badge-green':s==='Rejected'?'badge-red':s==='Interview'?'badge-blue':'badge-yellow'}`}>{s}: {data.filter(a=>a.status===s).length}</span>
+))}</div>
+<button className="btn btn-primary" onClick={()=>setShow(true)}>+ Add Applicant</button>
+</div>
+<div className="card" style={{overflow:'auto'}}>
+<table><thead><tr><th>Name</th><th>Position</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+<tbody>{data.map(a=>(<tr key={a.id}>
+<td><div><div className="font-medium">{a.name}</div><div className="text-xs text-gray">{a.email}</div></div></td>
+<td className="text-sm">{a.position||'-'}</td>
+<td><select className="text-sm" value={a.status} onChange={e=>{set(data.map(x=>x.id===a.id?{...x,status:e.target.value}:x));L('Updated Applicant Status',`${a.name}: ${e.target.value}`)}} style={{width:'auto',padding:'4px 8px'}}>
+<option>New</option><option>Screening</option><option>Interview</option><option>Offer</option><option>Hired</option><option>Rejected</option></select></td>
+<td className="text-sm">{FD(a.date)}</td>
+<td><button className="btn btn-danger" onClick={()=>{set(data.filter(x=>x.id!==a.id));L('Deleted Applicant',a.name)}}>Del</button></td>
+</tr>))}</tbody></table></div>
+<Modal open={show} onClose={()=>setShow(false)} title="Add Applicant">
+<div className="grid-2">
+<div><label className="text-xs font-medium text-gray">Name*</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Email</label><input value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Phone</label><input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Position</label><select value={form.position} onChange={e=>setForm({...form,position:e.target.value})}><option value="">Select...</option>{positions.map(p=><option key={p.id} value={p.title}>{p.title}</option>)}</select></div>
+</div>
+<div className="mt-2"><label className="text-xs font-medium text-gray">Notes</label><textarea value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} rows={2}/></div>
+<div className="flex justify-between mt-4"><button className="btn btn-outline" onClick={()=>setShow(false)}>Cancel</button>
+<button className="btn btn-primary" onClick={save}>Add Applicant</button></div>
+</Modal>
+</div>);
+}
+
+function Tasks({data,set,emps,L}){
+const[show,setShow]=useState(false);const[edit,setEdit]=useState(null);
+const blank={title:'',description:'',assignee:'',priority:'Medium',status:'To Do',dueDate:'',progress:0};
+const[form,setForm]=useState(blank);
+const save=()=>{if(!form.title)return;
+if(edit){set(data.map(t=>t.id===edit?{...form,id:edit}:t));L('Updated Task',form.title)}
+else{set([...data,{...form,id:ID()}]);L('Added Task',form.title)}
+setShow(false);setEdit(null);setForm(blank)};
+return(<div>
+<div className="grid-3 mb-4">
+<div className="stat"><h3>To Do</h3><p>{data.filter(t=>t.status==='To Do').length}</p></div>
+<div className="stat"><h3>In Progress</h3><p style={{color:'#3b82f6'}}>{data.filter(t=>t.status==='In Progress').length}</p></div>
+<div className="stat"><h3>Done</h3><p style={{color:'#22c55e'}}>{data.filter(t=>t.status==='Done').length}</p></div>
+</div>
+<div className="flex justify-between items-center mb-4">
+<h3 className="font-bold">All Tasks</h3>
+<button className="btn btn-primary" onClick={()=>{setForm(blank);setEdit(null);setShow(true)}}>+ Add Task</button>
+</div>
+{data.map(t=>(<div key={t.id} className="card flex justify-between items-center">
+<div style={{flex:1}}>
+<div className="flex items-center gap-2 mb-1"><h4 className="font-medium">{t.title}</h4>
+<span className={`badge ${t.priority==='High'?'badge-red':t.priority==='Medium'?'badge-yellow':'badge-green'}`}>{t.priority}</span>
+<span className={`badge ${t.status==='Done'?'badge-green':t.status==='In Progress'?'badge-blue':'badge-yellow'}`}>{t.status}</span></div>
+<div className="text-xs text-gray">{t.assignee&&`Assigned: ${t.assignee}`} {t.dueDate&&`â¢ Due: ${FD(t.dueDate)}`}</div>
+{t.status==='In Progress'&&<div className="progress-bar mt-2" style={{maxWidth:200}}><div className="progress-fill" style={{width:`${t.progress||0}%`}}/></div>}
+</div>
+<div className="flex gap-2">
+<button className="btn btn-outline" onClick={()=>{setForm(t);setEdit(t.id);setShow(true)}}>Edit</button>
+<button className="btn btn-danger" onClick={()=>{set(data.filter(x=>x.id!==t.id));L('Deleted Task',t.title)}}>Del</button>
+</div>
+</div>))}
+{!data.length&&<p className="text-sm text-gray p-4">No tasks yet</p>}
+<Modal open={show} onClose={()=>{setShow(false);setEdit(null)}} title={edit?'Edit Task':'Add Task'}>
+<div className="grid-2">
+<div style={{gridColumn:'span 2'}}><label className="text-xs font-medium text-gray">Title*</label><input value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Assignee</label><select value={form.assignee} onChange={e=>setForm({...form,assignee:e.target.value})}><option value="">Select...</option>{emps.map(e=><option key={e.id} value={e.name}>{e.name}</option>)}</select></div>
+<div><label className="text-xs font-medium text-gray">Priority</label><select value={form.priority} onChange={e=>setForm({...form,priority:e.target.value})}><option>Low</option><option>Medium</option><option>High</option></select></div>
+<div><label className="text-xs font-medium text-gray">Status</label><select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option>To Do</option><option>In Progress</option><option>Done</option></select></div>
+<div><label className="text-xs font-medium text-gray">Due Date</label><input type="date" value={form.dueDate} onChange={e=>setForm({...form,dueDate:e.target.value})}/></div>
+{form.status==='In Progress'&&<div style={{gridColumn:'span 2'}}><label className="text-xs font-medium text-gray">Progress: {form.progress}%</label><input type="range" min="0" max="100" value={form.progress} onChange={e=>setForm({...form,progress:parseInt(e.target.value)})}/></div>}
+<div style={{gridColumn:'span 2'}}><label className="text-xs font-medium text-gray">Description</label><textarea value={form.description||''} onChange={e=>setForm({...form,description:e.target.value})} rows={2}/></div>
+</div>
+<div className="flex justify-between mt-4"><button className="btn btn-outline" onClick={()=>{setShow(false);setEdit(null)}}>Cancel</button>
+<button className="btn btn-primary" onClick={save}>{edit?'Update':'Add'} Task</button></div>
+</Modal>
+</div>);
+}
+
+function Inventory({data,set,L}){
+const[show,setShow]=useState(false);const[edit,setEdit]=useState(null);
+const blank={name:'',category:'',quantity:'',minStock:'',unit:'pcs',cost:'',location:'',photo:''};
+const[form,setForm]=useState(blank);
+const save=()=>{if(!form.name)return;
+if(edit){set(data.map(i=>i.id===edit?{...form,id:edit,quantity:parseInt(form.quantity)||0,minStock:parseInt(form.minStock)||0}:i));L('Updated Item',form.name)}
+else{set([...data,{...form,id:ID(),quantity:parseInt(form.quantity)||0,minStock:parseInt(form.minStock)||0}]);L('Added Item',form.name)}
+setShow(false);setEdit(null);setForm(blank)};
+const lowStock=data.filter(i=>i.quantity<=i.minStock);
+return(<div>
+<div className="grid-3 mb-4">
+<div className="stat"><h3>Total Items</h3><p>{data.length}</p></div>
+<div className="stat"><h3>Low Stock</h3><p style={{color:lowStock.length>0?'#ef4444':'#22c55e'}}>{lowStock.length}</p></div>
+<div className="stat"><h3>Total Value</h3><p>${data.reduce((s,i)=>s+(i.quantity||0)*(parseFloat(i.cost)||0),0).toLocaleString()}</p></div>
+</div>
+<div className="flex justify-between items-center mb-4">
+<h3 className="font-bold">Inventory Items</h3>
+<button className="btn btn-primary" onClick={()=>{setForm(blank);setEdit(null);setShow(true)}}>+ Add Item</button>
+</div>
+<div className="card" style={{overflow:'auto'}}>
+<table><thead><tr><th>Item</th><th>Category</th><th>Qty</th><th>Min</th><th>Cost</th><th>Status</th><th>Actions</th></tr></thead>
+<tbody>{data.map(i=>(<tr key={i.id}>
+<td><div className="flex items-center gap-2">
+{i.photo&&<div className="avatar"><img src={i.photo}/></div>}
+<span className="font-medium">{i.name}</span></div></td>
+<td className="text-sm">{i.category||'-'}</td><td>{i.quantity} {i.unit}</td><td>{i.minStock}</td>
+<td>${parseFloat(i.cost||0).toFixed(2)}</td>
+<td><span className={`badge ${i.quantity<=i.minStock?'badge-red':'badge-green'}`}>{i.quantity<=i.minStock?'Low':'OK'}</span></td>
+<td><div className="flex gap-2"><button className="btn btn-outline" onClick={()=>{setForm(i);setEdit(i.id);setShow(true)}}>Edit</button>
+<button className="btn btn-danger" onClick={()=>{set(data.filter(x=>x.id!==i.id));L('Deleted Item',i.name)}}>Del</button></div></td>
+</tr>))}</tbody></table></div>
+<Modal open={show} onClose={()=>{setShow(false);setEdit(null)}} title={edit?'Edit Item':'Add Item'}>
+<PhotoUpload value={form.photo} onChange={v=>setForm({...form,photo:v})}/>
+<div className="grid-2 mt-2">
+<div><label className="text-xs font-medium text-gray">Name*</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Category</label><input value={form.category} onChange={e=>setForm({...form,category:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Quantity</label><input type="number" value={form.quantity} onChange={e=>setForm({...form,quantity:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Min Stock</label><input type="number" value={form.minStock} onChange={e=>setForm({...form,minStock:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Cost</label><input type="number" step="0.01" value={form.cost} onChange={e=>setForm({...form,cost:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Unit</label><select value={form.unit} onChange={e=>setForm({...form,unit:e.target.value})}><option>pcs</option><option>kg</option><option>lbs</option><option>gallons</option><option>boxes</option></select></div>
+<div><label className="text-xs font-medium text-gray">Location</label><input value={form.location||''} onChange={e=>setForm({...form,location:e.target.value})}/></div>
+</div>
+<div className="flex justify-between mt-4"><button className="btn btn-outline" onClick={()=>{setShow(false);setEdit(null)}}>Cancel</button>
+<button className="btn btn-primary" onClick={save}>{edit?'Update':'Add'} Item</button></div>
+</Modal>
+</div>);
+}
+
+function Messages({data,set,emps}){
+const[msg,setMsg]=useState('');const[sender,setSender]=useState('Admin');
+const send=()=>{if(!msg.trim())return;set([...data,{id:ID(),sender,message:msg,timestamp:new Date().toISOString()}]);setMsg('')};
+return(<div>
+<div className="card" style={{height:'60vh',display:'flex',flexDirection:'column'}}>
+<div style={{flex:1,overflowY:'auto',padding:'12px'}}>
+{data.map(m=>(<div key={m.id} style={{marginBottom:12}}>
+<div className="flex items-center gap-2 mb-1">
+<div className="avatar" style={{width:32,height:32,fontSize:12}}>{(m.sender||'?')[0]}</div>
+<span className="font-medium text-sm">{m.sender}</span>
+<span className="text-xs text-gray">{new Date(m.timestamp).toLocaleString()}</span>
+</div>
+<div style={{marginLeft:44,background:'#f1f5f9',padding:'8px 12px',borderRadius:8,display:'inline-block'}} className="text-sm">{m.message}</div>
+</div>))}
+{!data.length&&<p className="text-sm text-gray" style={{textAlign:'center',marginTop:40}}>No messages yet. Start the conversation!</p>}
+</div>
+<div style={{borderTop:'1px solid #e2e8f0',padding:12}} className="flex gap-2">
+<select value={sender} onChange={e=>setSender(e.target.value)} style={{width:140}}>
+<option>Admin</option>{emps.map(e=><option key={e.id} value={e.name}>{e.name}</option>)}</select>
+<input value={msg} onChange={e=>setMsg(e.target.value)} placeholder="Type a message..." onKeyDown={e=>e.key==='Enter'&&send()} style={{flex:1}}/>
+<button className="btn btn-primary" onClick={send}>Send</button>
+</div>
+</div>
+</div>);
+}
+
+function Birthdays({emps}){
+const today=new Date();const month=today.getMonth();
+const upcoming=emps.filter(e=>{if(!e.startDate)return false;const d=new Date(e.startDate);return d.getMonth()===month}).sort((a,b)=>new Date(a.startDate).getDate()-new Date(b.startDate).getDate());
+return(<div>
+<div className="card mb-4"><h3 className="font-bold mb-2">ð This Month's Birthdays & Work Anniversaries</h3>
+<p className="text-sm text-gray mb-4">Showing employees with start dates in {today.toLocaleString('default',{month:'long'})}</p>
+{upcoming.length?upcoming.map(e=>(<div key={e.id} className="flex items-center gap-3 mb-3 p-4" style={{background:'#fefce8',borderRadius:8}}>
+<div className="avatar">{e.photo?<img src={e.photo}/>:(e.name||'?')[0]}</div>
+<div><div className="font-medium">{e.name}</div><div className="text-sm text-gray">{e.position} â¢ Started {FD(e.startDate)}</div></div>
+<span style={{marginLeft:'auto',fontSize:24}}>ð</span>
+</div>)):<p className="text-sm text-gray">No celebrations this month</p>}
+</div>
+<div className="card"><h3 className="font-bold mb-2">All Employees by Start Date</h3>
+{emps.length?emps.sort((a,b)=>(a.startDate||'').localeCompare(b.startDate||'')).map(e=>(<div key={e.id} className="flex items-center gap-2 mb-2">
+<div className="avatar" style={{width:32,height:32,fontSize:12}}>{(e.name||'?')[0]}</div>
+<span className="text-sm font-medium">{e.name}</span>
+<span className="text-xs text-gray">{FD(e.startDate)}</span>
+</div>)):<p className="text-sm text-gray">No employees added yet</p>}
+</div>
+</div>);
+}
+
+function AuditLog({data}){
+const[search,setSearch]=useState('');
+const filtered=data.filter(l=>(l.action||'').toLowerCase().includes(search.toLowerCase())||(l.details||'').toLowerCase().includes(search.toLowerCase()));
+return(<div>
+<input placeholder="Search audit logs..." value={search} onChange={e=>setSearch(e.target.value)} className="mb-4" style={{maxWidth:400}}/>
+<div className="card" style={{overflow:'auto'}}>
+<table><thead><tr><th>Timestamp</th><th>Action</th><th>Details</th><th>User</th></tr></thead>
+<tbody>{filtered.slice(0,100).map(l=>(<tr key={l.id}>
+<td className="text-xs text-gray">{new Date(l.timestamp).toLocaleString()}</td>
+<td><span className="badge badge-blue">{l.action}</span></td>
+<td className="text-sm">{l.details}</td>
+<td className="text-sm">{l.user}</td>
+</tr>))}</tbody></table>
+{!filtered.length&&<p className="text-sm text-gray p-4">No audit logs yet</p>}
+</div>
+</div>);
+}
+
+function Analytics({emps,clients,complaints,payroll,tasks}){
+const depts={};emps.forEach(e=>{const d=e.department||'Other';depts[d]=(depts[d]||0)+1});
+const statusCount={};tasks.forEach(t=>{const s=t.status||'Unknown';statusCount[s]=(statusCount[s]||0)+1});
+const compStatus={};complaints.forEach(c=>{const s=c.status||'Unknown';compStatus[s]=(compStatus[s]||0)+1});
+const totalPay=payroll.reduce((s,p)=>s+(p.amount||0),0);
+const avgPay=payroll.length?totalPay/payroll.length:0;
+return(<div>
+<div className="grid-4 mb-4">
+<div className="stat"><h3>Employees</h3><p>{emps.length}</p></div>
+<div className="stat"><h3>Clients</h3><p>{clients.length}</p></div>
+<div className="stat"><h3>Avg Payroll</h3><p>${avgPay.toLocaleString(undefined,{maximumFractionDigits:0})}</p></div>
+<div className="stat"><h3>Total Payroll</h3><p>${totalPay.toLocaleString()}</p></div>
+</div>
+<div className="grid-2 mb-4">
+<div className="card"><h3 className="font-bold mb-4">Employees by Department</h3>
+{Object.entries(depts).map(([d,c])=>(<div key={d} className="flex justify-between items-center mb-2">
+<span className="text-sm">{d}</span>
+<div className="flex items-center gap-2"><div className="progress-bar" style={{width:120}}><div className="progress-fill" style={{width:`${(c/Math.max(...Object.values(depts)))*100}%`}}/></div>
+<span className="font-bold text-sm">{c}</span></div>
+</div>))}
+{!Object.keys(depts).length&&<p className="text-sm text-gray">No data</p>}
+</div>
+<div className="card"><h3 className="font-bold mb-4">Tasks by Status</h3>
+{Object.entries(statusCount).map(([s,c])=>(<div key={s} className="flex justify-between items-center mb-2">
+<span className={`badge ${s==='Done'?'badge-green':s==='In Progress'?'badge-blue':'badge-yellow'}`}>{s}</span>
+<span className="font-bold">{c}</span>
+</div>))}
+{!Object.keys(statusCount).length&&<p className="text-sm text-gray">No data</p>}
+</div>
+</div>
+<div className="grid-2">
+<div className="card"><h3 className="font-bold mb-4">Complaints Overview</h3>
+{Object.entries(compStatus).map(([s,c])=>(<div key={s} className="flex justify-between items-center mb-2">
+<span className={`badge ${s==='Resolved'?'badge-green':s==='Open'?'badge-yellow':'badge-blue'}`}>{s}</span>
+<span className="font-bold">{c}</span>
+</div>))}
+{!Object.keys(compStatus).length&&<p className="text-sm text-gray">No complaints</p>}
+</div>
+<div className="card"><h3 className="font-bold mb-4">Quick Stats</h3>
+<div className="mb-2"><span className="text-sm text-gray">Active Employees:</span> <span className="font-bold">{emps.filter(e=>e.status==='Active').length}</span></div>
+<div className="mb-2"><span className="text-sm text-gray">Active Clients:</span> <span className="font-bold">{clients.filter(c=>c.status==='Active').length}</span></div>
+<div className="mb-2"><span className="text-sm text-gray">Open Complaints:</span> <span className="font-bold">{complaints.filter(c=>c.status!=='Resolved').length}</span></div>
+<div className="mb-2"><span className="text-sm text-gray">Pending Tasks:</span> <span className="font-bold">{tasks.filter(t=>t.status!=='Done').length}</span></div>
+<div className="mb-2"><span className="text-sm text-gray">Pending Payroll:</span> <span className="font-bold">${payroll.filter(p=>p.status==='Pending').reduce((s,p)=>s+(p.amount||0),0).toLocaleString()}</span></div>
+</div>
+</div>
+</div>);
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
