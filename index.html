@@ -117,8 +117,8 @@ return(<div className="flex items-center gap-3">
 </div>);
 }
 
-const PAGES=['Dashboard','Employees','Clients','Schedule','Expenses','Complaints','Payroll','Job Positions','Applicants','Tasks','Inventory','Announcements','Messages','Birthdays','Audit Log','Analytics'];
-const ICONS=['\u{1F4CA}','\u{1F465}','\u{1F3E2}','\u{1F4C5}','\u{1F4B3}','\u{1F4CB}','\u{1F4B0}','\u{1F4BC}','\u{1F4DD}','\u2705','\u{1F4E6}','\u{1F4E2}','\u{1F4AC}','\u{1F382}','\u{1F4DC}','\u{1F4C8}'];
+const PAGES=['Dashboard','Employees','Clients','Schedule','Expenses','Complaints','Payroll','Job Positions','Applicants','Tasks','Inventory','Announcements','Work Orders','Routes','Messages','Birthdays','Audit Log','Analytics'];
+const ICONS=['\u{1F4CA}','\u{1F465}','\u{1F3E2}','\u{1F4C5}','\u{1F4B3}','\u{1F4CB}','\u{1F4B0}','\u{1F4BC}','\u{1F4DD}','\u2705','\u{1F4E6}','\u{1F4E2}','\u{1F527}','\u{1F5FA}','\u{1F4AC}','\u{1F382}','\u{1F4DC}','\u{1F4C8}'];
 
 /* ===== ROLE-BASED ACCESS ===== */
 const ROLES={OWNER:'Owner',MANAGER:'Manager',EMPLOYEE:'Employee'};
@@ -230,6 +230,9 @@ const[documents,setDocs]=useLS('documents',[]);
 const[schedules,setSchedules]=useLS('schedules',[]);
 const[expenses,setExpenses]=useLS('expenses',[]);
 const[announcements,setAnnouncements]=useLS('announcements',[]);
+const[workOrders,setWorkOrders]=useLS('workOrders',[]);
+const[routes,setRoutes]=useLS('routes',[]);
+const[serviceHistory,setServiceHistory]=useLS('serviceHistory',[]);
 const L=(a,d)=>log(logs,setLogs,a,d,currentUser?.name||'System');
 
 const handleSetup=()=>{
@@ -273,9 +276,9 @@ return(<div className="flex">
 <span className="text-sm text-gray">{new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</span>
 <NotificationBell emps={emps} pto={pto} training={training} inventory={inventory}/>
 </div>
-{page==='Dashboard'&&<Dashboard emps={emps} clients={clients} complaints={complaints} tasks={tasks} payroll={payroll} role={role} training={training} pto={pto} schedules={schedules} expenses={expenses} announcements={announcements}/>}
+{page==='Dashboard'&&<Dashboard emps={emps} clients={clients} complaints={complaints} tasks={tasks} payroll={payroll} role={role} training={training} pto={pto} schedules={schedules} expenses={expenses} announcements={announcements} workOrders={workOrders}/>}
 {page==='Employees'&&<Employees data={emps} set={setEmps} L={L} role={role} complaints={complaints} setComp={setComp} training={training} setTraining={setTraining} payroll={payroll} setPay={setPay} reviews={reviews} setReviews={setReviews} pto={pto} setPto={setPto} documents={documents} setDocs={setDocs}/>}
-{page==='Clients'&&<Clients data={clients} set={setCli} L={L} role={role}/>}
+{page==='Clients'&&<Clients data={clients} set={setCli} L={L} role={role} serviceHistory={serviceHistory} setServiceHistory={setServiceHistory} emps={emps} inventory={inventory}/>}
 {page==='Complaints'&&<Complaints data={complaints} set={setComp} emps={emps} L={L} role={role}/>}
 {page==='Payroll'&&<PayrollPage data={payroll} set={setPay} emps={emps} L={L} role={role}/>}
 {page==='Job Positions'&&<Positions data={positions} set={setPos} L={L} role={role}/>}
@@ -285,6 +288,8 @@ return(<div className="flex">
 {page==='Schedule'&&<Schedule data={schedules} set={setSchedules} emps={emps} L={L} role={role}/>}
 {page==='Expenses'&&<Expenses data={expenses} set={setExpenses} L={L} role={role}/>}
 {page==='Announcements'&&<Announcements data={announcements} set={setAnnouncements} currentUser={currentUser} L={L} role={role}/>}
+{page==='Work Orders'&&<WorkOrders data={workOrders} set={setWorkOrders} emps={emps} clients={clients} inventory={inventory} setInv={setInv} L={L} role={role}/>}
+{page==='Routes'&&<Routes data={routes} set={setRoutes} emps={emps} clients={clients} L={L} role={role}/>}
 {page==='Messages'&&<Messages data={messages} set={setMsg} emps={emps} currentUser={currentUser}/>}
 {page==='Birthdays'&&<Birthdays emps={emps}/>}
 {page==='Audit Log'&&<AuditLog data={logs}/>}
@@ -294,7 +299,7 @@ return(<div className="flex">
 </div>);
 }
 
-function Dashboard({emps,clients,complaints,tasks,payroll,role,training,pto,schedules,expenses,announcements}){
+function Dashboard({emps,clients,complaints,tasks,payroll,role,training,pto,schedules,expenses,announcements,workOrders}){
 const active=complaints.filter(c=>c.status!=='Resolved').length;
 const pending=tasks.filter(t=>t.status!=='Done').length;
 const today=new Date();
@@ -305,6 +310,7 @@ const todayShifts=(schedules||[]).filter(s=>s.date===NOW());
 const thisMonthExpenses=(expenses||[]).filter(e=>{const d=new Date(e.date+'T12:00:00');const n=new Date();return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear()});
 const monthExpTotal=thisMonthExpenses.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
 const recentAnn=(announcements||[]).slice(-3).reverse();
+const openWO=(workOrders||[]).filter(w=>w.status!=='Completed'&&w.status!=='Cancelled').length;
 return(<div>
 <div className="grid-4 mb-4">
 <div className="stat"><h3>Total Employees</h3><p>{emps.length}</p></div>
@@ -317,6 +323,10 @@ return(<div>
 <div className="stat"><h3>Pending PTO</h3><p style={{color:pendingPto>0?'#f59e0b':'#22c55e'}}>{pendingPto}</p></div>
 {canSeeSensitive(role)&&<div className="stat"><h3>Month Expenses</h3><p style={{fontSize:22}}>{'$'+monthExpTotal.toLocaleString()}</p></div>}
 <div className="stat"><h3>Expiring Certs</h3><p style={{color:expiringTraining.length>0?'#f59e0b':'#22c55e'}}>{expiringTraining.length}</p></div>
+</div>
+<div className="grid-4 mb-4">
+<div className="stat"><h3>Open Work Orders</h3><p style={{color:openWO>0?'#f59e0b':'#22c55e'}}>{openWO}</p></div>
+<div className="stat"><h3>Total Clients</h3><p>{clients.filter(c=>c.status==='Active').length} active</p></div>
 </div>
 <div className="grid-3 mb-4">
 {upcomingBdays.length>0&&<div className="card" style={{borderLeft:'4px solid #f59e0b'}}>
@@ -756,9 +766,11 @@ return(<div>
 }
 
 /* ===== EXISTING MODULES (with role checks) ===== */
-function Clients({data,set,L,role}){
-const[show,setShow]=useState(false);const[edit,setEdit]=useState(null);const[search,setSearch]=useState('');
-const blank={name:'',email:'',phone:'',company:'',address:'',status:'Active',notes:''};
+
+/* ===== ENHANCED CLIENTS WITH SERVICE HISTORY ===== */
+function Clients({data,set,L,role,serviceHistory,setServiceHistory,emps,inventory}){
+const[show,setShow]=useState(false);const[edit,setEdit]=useState(null);const[search,setSearch]=useState('');const[viewClient,setViewClient]=useState(null);
+const blank={name:'',email:'',phone:'',company:'',address:'',status:'Active',notes:'',serviceDay:'',techId:'',techName:''};
 const[form,setForm]=useState(blank);
 const filtered=data.filter(c=>(c.name||'').toLowerCase().includes(search.toLowerCase())||(c.company||'').toLowerCase().includes(search.toLowerCase()));
 const save=()=>{if(!form.name)return;
@@ -766,32 +778,205 @@ if(edit){set(data.map(c=>c.id===edit?{...form,id:edit}:c));L('Updated Client',fo
 else{set([...data,{...form,id:ID()}]);L('Added Client',form.name)}
 setShow(false);setEdit(null);setForm(blank)};
 const del=(id,n)=>{set(data.filter(c=>c.id!==id));L('Deleted Client',n)};
+
+if(viewClient){
+const cl=data.find(c=>c.id===viewClient);if(!cl)return <p>Not found</p>;
+return <ClientDetail client={cl} onBack={()=>setViewClient(null)} onEdit={()=>{setForm(cl);setEdit(cl.id);setViewClient(null);setShow(true)}} serviceHistory={(serviceHistory||[]).filter(s=>s.clientId===cl.id)} allHistory={serviceHistory||[]} setServiceHistory={setServiceHistory} emps={emps} inventory={inventory} role={role} L={L}/>;
+}
+
 return(<div>
 <div className="flex justify-between items-center mb-4">
 <input placeholder="Search clients..." value={search} onChange={e=>setSearch(e.target.value)} style={{maxWidth:300}}/>
 {canEdit(role)&&<button className="btn btn-primary" onClick={()=>{setForm(blank);setEdit(null);setShow(true)}}>+ Add Client</button>}
 </div>
 <div className="card" style={{overflow:'auto'}}>
-<table><thead><tr><th>Name</th><th>Company</th><th>Email</th><th>Phone</th><th>Status</th>{canEdit(role)&&<th>Actions</th>}</tr></thead>
+<table><thead><tr><th>Name</th><th>Company</th><th>Email</th><th>Phone</th><th>Service Day</th><th>Status</th><th>Actions</th></tr></thead>
 <tbody>{filtered.map(c=>(<tr key={c.id}>
-<td className="font-medium">{c.name}</td><td>{c.company||'-'}</td><td className="text-sm">{c.email||'-'}</td>
+<td><div style={{cursor:'pointer'}} onClick={()=>setViewClient(c.id)}>
+<div className="font-medium" style={{color:'#3b82f6'}}>{c.name}</div>
+<div className="text-xs text-gray">{c.company||''}</div></div></td>
+<td>{c.company||'-'}</td><td className="text-sm">{c.email||'-'}</td>
 <td className="text-sm">{c.phone||'-'}</td>
-<td><span className={`badge ${c.status==='Active'?'badge-green':'badge-red'}`}>{c.status}</span></td>
-{canEdit(role)&&<td><div className="flex gap-2"><button className="btn btn-outline btn-sm" onClick={()=>{setForm(c);setEdit(c.id);setShow(true)}}>Edit</button>
-<button className="btn btn-danger btn-sm" onClick={()=>del(c.id,c.name)}>Del</button></div></td>}
-</tr>))}</tbody></table></div>
-<Modal open={show} onClose={()=>{setShow(false);setEdit(null)}} title={edit?'Edit Client':'Add Client'}>
+<td><span className="badge badge-blue" style={{fontSize:10}}>{c.serviceDay||'Not set'}</span></td>
+<td><span className={'badge '+(c.status==='Active'?'badge-green':'badge-red')}>{c.status}</span></td>
+<td><div className="flex gap-2">
+<button className="btn btn-outline btn-sm" onClick={()=>setViewClient(c.id)}>View</button>
+{canEdit(role)&&<button className="btn btn-outline btn-sm" onClick={()=>{setForm(c);setEdit(c.id);setShow(true)}}>Edit</button>}
+{canSeeSensitive(role)&&<button className="btn btn-danger btn-sm" onClick={()=>{if(confirm('Delete '+c.name+'?'))del(c.id,c.name)}}>Del</button>}
+</div></td>
+</tr>))}</tbody></table>
+{!filtered.length&&<p className="text-sm text-gray p-4">No clients found</p>}
+</div>
+<Modal open={show} onClose={()=>{setShow(false);setEdit(null)}} title={edit?'Edit Client':'Add Client'} wide>
 <div className="grid-2">
 <div><label className="text-xs font-medium text-gray">Name*</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></div>
 <div><label className="text-xs font-medium text-gray">Company</label><input value={form.company} onChange={e=>setForm({...form,company:e.target.value})}/></div>
 <div><label className="text-xs font-medium text-gray">Email</label><input value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></div>
 <div><label className="text-xs font-medium text-gray">Phone</label><input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/></div>
 <div style={{gridColumn:'span 2'}}><label className="text-xs font-medium text-gray">Address</label><input value={form.address||''} onChange={e=>setForm({...form,address:e.target.value})}/></div>
-<div><label className="text-xs font-medium text-gray">Status</label><select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option>Active</option><option>Inactive</option></select></div>
+<div><label className="text-xs font-medium text-gray">Service Day</label>
+<select value={form.serviceDay||''} onChange={e=>setForm({...form,serviceDay:e.target.value})}>
+<option value="">Select day...</option>
+{['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(d=><option key={d}>{d}</option>)}</select></div>
+<div><label className="text-xs font-medium text-gray">Assigned Tech</label>
+<select value={form.techId||''} onChange={e=>{const em=(emps||[]).find(x=>x.id===e.target.value);setForm({...form,techId:e.target.value,techName:em?em.name:''})}}>
+<option value="">Select tech...</option>{(emps||[]).map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
+<div><label className="text-xs font-medium text-gray">Status</label>
+<select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option>Active</option><option>Inactive</option></select></div>
 <div style={{gridColumn:'span 2'}}><label className="text-xs font-medium text-gray">Notes</label><textarea value={form.notes||''} onChange={e=>setForm({...form,notes:e.target.value})} rows={2}/></div>
 </div>
 <div className="flex justify-between mt-4"><button className="btn btn-outline" onClick={()=>{setShow(false);setEdit(null)}}>Cancel</button>
 <button className="btn btn-primary" onClick={save}>{edit?'Update':'Add'} Client</button></div>
+</Modal>
+</div>);
+}
+
+function ClientDetail({client,onBack,onEdit,serviceHistory,allHistory,setServiceHistory,emps,inventory,role,L}){
+const[tab,setTab]=useState('Overview');
+const[showSH,setShowSH]=useState(false);
+const days=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const blankSH={date:NOW(),techId:'',techName:'',type:'Regular Service',duration:'',ph:'',chlorine:'',alkalinity:'',hardness:'',cyanuric:'',phosphates:'',notes:'',workDone:'',chemicals:[],photos:''};
+const[shForm,setSHForm]=useState(blankSH);
+const[chemLine,setChemLine]=useState({name:'',amount:'',unit:'oz'});
+const saveSH=()=>{
+const rec={...shForm,id:ID(),clientId:client.id,clientName:client.name};
+setServiceHistory([...allHistory,rec]);
+L('Service Visit Logged',client.name+' - '+shForm.type);
+setShowSH(false);setSHForm(blankSH)};
+const addChem=()=>{if(!chemLine.name)return;setSHForm({...shForm,chemicals:[...(shForm.chemicals||[]),{...chemLine,id:ID()}]});setChemLine({name:'',amount:'',unit:'oz'})};
+const chemPresets=['Chlorine','Shock','Algaecide','pH Up','pH Down','Alkalinity Up','Clarifier','Phosphate Remover','Salt','CYA'];
+const waterStatus=(val,min,max)=>val===''||val===undefined?'N/A':parseFloat(val)<min?'Low':parseFloat(val)>max?'High':'OK';
+const waterColor=(status)=>status==='OK'?'#22c55e':status==='N/A'?'#94a3b8':'#ef4444';
+return(<div>
+<button className="btn btn-outline mb-4" onClick={onBack}>{'←'} Back to Clients</button>
+<div className="detail-header flex items-center gap-4">
+<div style={{flex:1}}>
+<h2 className="text-xl font-bold">{client.name}</h2>
+<p style={{color:'#94a3b8'}}>{client.company||'Individual'} {client.address?'• '+client.address:''}</p>
+<div className="flex gap-2 mt-2">
+<span className={'badge '+(client.status==='Active'?'badge-green':'badge-red')}>{client.status||'Active'}</span>
+{client.serviceDay&&<span className="badge badge-blue">{client.serviceDay}</span>}
+{client.techName&&<span className="badge badge-purple">Tech: {client.techName}</span>}
+</div></div>
+{canEdit(role)&&<button className="btn btn-outline" style={{color:'white',borderColor:'rgba(255,255,255,.3)'}} onClick={onEdit}>Edit</button>}
+</div>
+<div className="tab-bar">
+{['Overview','Service History','Water Chemistry'].map(t=>(
+<div key={t} className={'tab'+(tab===t?' active':'')} onClick={()=>setTab(t)}>
+{t}{t==='Service History'&&serviceHistory.length>0&&<span className="badge badge-blue" style={{marginLeft:4,fontSize:10}}>{serviceHistory.length}</span>}
+</div>))}
+</div>
+{tab==='Overview'&&<div className="grid-2">
+<div className="card"><h3 className="font-bold mb-2">Contact Info</h3>
+<div className="info-row"><span className="info-label">Email</span><span className="info-value">{client.email||'-'}</span></div>
+<div className="info-row"><span className="info-label">Phone</span><span className="info-value">{client.phone||'-'}</span></div>
+<div className="info-row"><span className="info-label">Address</span><span className="info-value">{client.address||'-'}</span></div>
+<div className="info-row"><span className="info-label">Service Day</span><span className="info-value">{client.serviceDay||'Not set'}</span></div>
+<div className="info-row"><span className="info-label">Assigned Tech</span><span className="info-value">{client.techName||'Not assigned'}</span></div>
+{client.notes&&<div className="info-row"><span className="info-label">Notes</span><span className="info-value">{client.notes}</span></div>}
+</div>
+<div className="card"><h3 className="font-bold mb-2">Quick Stats</h3>
+<div className="info-row"><span className="info-label">Total Visits</span><span className="info-value font-bold">{serviceHistory.length}</span></div>
+<div className="info-row"><span className="info-label">Last Service</span><span className="info-value">{serviceHistory.length?FD(serviceHistory.sort((a,b)=>b.date.localeCompare(a.date))[0].date):'Never'}</span></div>
+<div className="info-row"><span className="info-label">This Month</span><span className="info-value">{serviceHistory.filter(s=>{const d=new Date(s.date+'T12:00:00');const n=new Date();return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear()}).length} visits</span></div>
+{serviceHistory.length>0&&<div className="info-row"><span className="info-label">Last Tech</span><span className="info-value">{serviceHistory.sort((a,b)=>b.date.localeCompare(a.date))[0].techName||'N/A'}</span></div>}
+</div>
+</div>}
+{tab==='Service History'&&<div>
+<div className="flex justify-between items-center mb-4">
+<h3 className="font-bold">Service History for {client.name}</h3>
+{canEdit(role)&&<button className="btn btn-primary btn-sm" onClick={()=>setShowSH(true)}>+ Log Service Visit</button>}
+</div>
+{serviceHistory.length?[...serviceHistory].sort((a,b)=>b.date.localeCompare(a.date)).map(sh=>(
+<div key={sh.id} className="card mb-3">
+<div className="flex justify-between items-start mb-2">
+<div><h4 className="font-bold">{sh.type}</h4>
+<p className="text-xs text-gray">{FD(sh.date)} {sh.techName?'• '+sh.techName:''} {sh.duration?'• '+sh.duration+' min':''}</p></div>
+<div className="flex gap-2">
+{sh.ph&&<span className="badge" style={{background:waterColor(waterStatus(sh.ph,7.2,7.6))+'20',color:waterColor(waterStatus(sh.ph,7.2,7.6)),fontSize:10}}>pH {sh.ph}</span>}
+{sh.chlorine&&<span className="badge" style={{background:waterColor(waterStatus(sh.chlorine,1,3))+'20',color:waterColor(waterStatus(sh.chlorine,1,3)),fontSize:10}}>Cl {sh.chlorine}</span>}
+</div></div>
+{sh.workDone&&<div className="mb-2"><span className="text-xs font-medium text-gray">Work Done: </span><span className="text-sm">{sh.workDone}</span></div>}
+{(sh.chemicals||[]).length>0&&<div className="mb-2"><span className="text-xs font-medium text-gray">Chemicals: </span>
+{(sh.chemicals||[]).map(ch=><span key={ch.id} className="badge badge-blue" style={{marginRight:4,fontSize:10}}>{ch.name} {ch.amount}{ch.unit}</span>)}</div>}
+{sh.notes&&<p className="text-sm text-gray">{sh.notes}</p>}
+{canEdit(role)&&<button className="btn btn-danger btn-sm mt-2" onClick={()=>{if(confirm('Delete this record?')){setServiceHistory(allHistory.filter(x=>x.id!==sh.id));L('Deleted Service Record',client.name)}}}>Delete</button>}
+</div>)):
+<div className="card" style={{textAlign:'center',padding:32}}>
+<p className="text-gray text-sm">No service visits logged yet</p>
+{canEdit(role)&&<button className="btn btn-primary mt-3 btn-sm" onClick={()=>setShowSH(true)}>Log First Visit</button>}
+</div>}
+</div>}
+{tab==='Water Chemistry'&&<div>
+<div className="card mb-4"><h3 className="font-bold mb-3">Water Chemistry Reference</h3>
+<div className="grid-3">
+{[{label:'pH',min:7.2,max:7.6,unit:''},
+{label:'Free Chlorine',min:1,max:3,unit:'ppm'},
+{label:'Total Alkalinity',min:80,max:120,unit:'ppm'},
+{label:'Calcium Hardness',min:200,max:400,unit:'ppm'},
+{label:'CYA (Stabilizer)',min:30,max:50,unit:'ppm'},
+{label:'Phosphates',min:0,max:200,unit:'ppb'}].map(({label,min,max,unit})=>{
+const lastVal=serviceHistory.length?[...serviceHistory].sort((a,b)=>b.date.localeCompare(a.date)).map(s=>s[label.split(' ')[0].toLowerCase()]||s[label==='Free Chlorine'?'chlorine':label==='Total Alkalinity'?'alkalinity':label==='Calcium Hardness'?'hardness':label==='CYA (Stabilizer)'?'cyanuric':'phosphates']).find(v=>v):null;
+const status=waterStatus(lastVal,min,max);
+return(<div key={label} className="card" style={{border:'2px solid '+waterColor(status)}}>
+<div className="text-xs font-medium text-gray">{label}</div>
+<div className="font-bold" style={{fontSize:22,color:waterColor(status)}}>{lastVal||'--'}{unit&&<span style={{fontSize:12}}> {unit}</span>}</div>
+<div className="text-xs text-gray">Range: {min}-{max}{unit}</div>
+<span className="badge" style={{background:waterColor(status)+'20',color:waterColor(status),fontSize:10}}>{status}</span>
+</div>)})}
+</div></div>
+<h3 className="font-bold mb-3">Chemistry History</h3>
+{serviceHistory.filter(s=>s.ph||s.chlorine||s.alkalinity).length?
+[...serviceHistory].sort((a,b)=>b.date.localeCompare(a.date)).map(sh=>(
+<div key={sh.id} className="card mb-2">
+<div className="flex justify-between items-center mb-2">
+<span className="font-medium text-sm">{FD(sh.date)}</span>
+<span className="text-xs text-gray">{sh.techName}</span></div>
+<div className="grid-3">
+{[['pH',sh.ph,7.2,7.6],['Chlorine',sh.chlorine,1,3],['Alkalinity',sh.alkalinity,80,120],['Hardness',sh.hardness,200,400],['CYA',sh.cyanuric,30,50],['Phosphates',sh.phosphates,0,200]].filter(([,v])=>v).map(([l,v,mn,mx])=>
+<div key={l} className="text-center p-2" style={{background:waterColor(waterStatus(v,mn,mx))+'15',borderRadius:6}}>
+<div className="text-xs text-gray">{l}</div>
+<div className="font-bold" style={{color:waterColor(waterStatus(v,mn,mx))}}>{v}</div>
+</div>)}
+</div></div>)):
+<p className="text-sm text-gray">No water chemistry data recorded yet</p>}
+</div>}
+<Modal open={showSH} onClose={()=>setShowSH(false)} title="Log Service Visit" wide>
+<div className="grid-2">
+<div><label className="text-xs font-medium text-gray">Date</label><input type="date" value={shForm.date} onChange={e=>setSHForm({...shForm,date:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Type</label>
+<select value={shForm.type} onChange={e=>setSHForm({...shForm,type:e.target.value})}>
+<option>Regular Service</option><option>Chemical Balance</option><option>Repair</option><option>Opening</option><option>Closing</option><option>Inspection</option><option>Emergency</option></select></div>
+<div><label className="text-xs font-medium text-gray">Technician</label>
+<select value={shForm.techId} onChange={e=>{const em=(emps||[]).find(x=>x.id===e.target.value);setSHForm({...shForm,techId:e.target.value,techName:em?em.name:''})}}>
+<option value="">Select...</option>{(emps||[]).map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
+<div><label className="text-xs font-medium text-gray">Duration (min)</label><input type="number" value={shForm.duration||''} onChange={e=>setSHForm({...shForm,duration:e.target.value})}/></div>
+</div>
+<h4 className="font-bold text-sm mt-3 mb-2" style={{color:'#3b82f6'}}>Water Chemistry Readings</h4>
+<div className="grid-3">
+{[['pH','ph','7.2-7.6'],['Free Chlorine (ppm)','chlorine','1-3'],['Total Alkalinity (ppm)','alkalinity','80-120'],['Calcium Hardness (ppm)','hardness','200-400'],['CYA/Stabilizer (ppm)','cyanuric','30-50'],['Phosphates (ppb)','phosphates','0-200']].map(([label,key,range])=>(
+<div key={key}><label className="text-xs font-medium text-gray">{label}<span className="text-gray" style={{fontWeight:400}}> ({range})</span></label>
+<input type="number" step="0.1" value={shForm[key]||''} onChange={e=>setSHForm({...shForm,[key]:e.target.value})} placeholder="--"/></div>))}
+</div>
+<h4 className="font-bold text-sm mt-3 mb-2" style={{color:'#3b82f6'}}>Chemicals Added</h4>
+<div className="flex gap-2 mb-2" style={{flexWrap:'wrap'}}>
+{chemPresets.map(ch=><button key={ch} className="btn btn-outline btn-sm" onClick={()=>setChemLine({...chemLine,name:ch})} style={{fontSize:11}}>{ch}</button>)}
+</div>
+<div className="grid-2 mb-2">
+<div><label className="text-xs font-medium text-gray">Chemical</label><input value={chemLine.name} onChange={e=>setChemLine({...chemLine,name:e.target.value})} placeholder="Chemical name"/></div>
+<div><label className="text-xs font-medium text-gray">Amount</label>
+<div className="flex gap-1"><input type="number" step="0.1" value={chemLine.amount||''} onChange={e=>setChemLine({...chemLine,amount:e.target.value})} style={{flex:1}}/>
+<select value={chemLine.unit} onChange={e=>setChemLine({...chemLine,unit:e.target.value})} style={{width:60}}>
+<option>oz</option><option>lbs</option><option>cups</option><option>gal</option><option>tabs</option></select>
+<button className="btn btn-primary btn-sm" onClick={addChem}>+</button></div></div>
+</div>
+{(shForm.chemicals||[]).length>0&&<div className="flex gap-2 flex-wrap mb-2">
+{(shForm.chemicals||[]).map(ch=><span key={ch.id} className="badge badge-blue" style={{cursor:'pointer'}} onClick={()=>setSHForm({...shForm,chemicals:(shForm.chemicals||[]).filter(x=>x.id!==ch.id)})}>{ch.name} {ch.amount}{ch.unit} ✕</span>)}
+</div>}
+<div className="mt-2"><label className="text-xs font-medium text-gray">Work Done</label><textarea value={shForm.workDone||''} onChange={e=>setSHForm({...shForm,workDone:e.target.value})} rows={2} placeholder="Describe work performed..."/></div>
+<div className="mt-2"><label className="text-xs font-medium text-gray">Notes</label><textarea value={shForm.notes||''} onChange={e=>setSHForm({...shForm,notes:e.target.value})} rows={2}/></div>
+<div className="flex justify-between mt-4"><button className="btn btn-outline" onClick={()=>setShowSH(false)}>Cancel</button>
+<button className="btn btn-primary" onClick={saveSH}>Save Service Visit</button></div>
 </Modal>
 </div>);
 }
@@ -1436,6 +1621,294 @@ return(<div key={a.id} className="card" style={{borderLeft:'4px solid '+(a.prior
 }
 
 
+
+/* ===== WORK ORDERS / SERVICE TICKETS ===== */
+function WorkOrders({data,set,emps,clients,inventory,setInv,L,role}){
+const[show,setShow]=useState(false);const[edit,setEdit]=useState(null);const[view,setView]=useState(null);const[filter,setFilter]=useState('All');
+const blank={title:'',clientId:'',clientName:'',assigneeId:'',assigneeName:'',type:'Service',priority:'Normal',status:'Open',scheduledDate:NOW(),completedDate:'',description:'',laborHours:'',laborRate:'',parts:[],notes:'',totalCost:''};
+const[form,setForm]=useState(blank);
+const[partLine,setPartLine]=useState({itemId:'',itemName:'',qty:1,unitCost:''});
+const filtered=filter==='All'?data:data.filter(w=>w.status===filter);
+const save=()=>{if(!form.title||!form.clientName)return;
+const laborCost=(parseFloat(form.laborHours)||0)*(parseFloat(form.laborRate)||0);
+const partsCost=(form.parts||[]).reduce((s,p)=>s+(parseFloat(p.qty)||0)*(parseFloat(p.unitCost)||0),0);
+const total=laborCost+partsCost;
+const wo={...form,id:edit||ID(),totalCost:total,laborCost,partsCost};
+if(edit){set(data.map(w=>w.id===edit?wo:w));L('Updated Work Order',form.title)}
+else{set([...data,wo]);L('Created Work Order',form.clientName+': '+form.title)}
+setShow(false);setEdit(null);setForm(blank)};
+const addPart=()=>{if(!partLine.itemName||!partLine.qty)return;
+setForm({...form,parts:[...(form.parts||[]),{...partLine,id:ID()}]});
+setPartLine({itemId:'',itemName:'',qty:1,unitCost:''})};
+const removePart=(id)=>setForm({...form,parts:(form.parts||[]).filter(p=>p.id!==id)});
+const changeStatus=(id,status)=>{set(data.map(w=>w.id===id?{...w,status,completedDate:status==='Completed'?NOW():w.completedDate}:w));L('Updated Work Order Status',status)};
+const openEdit=(wo)=>{setForm(wo);setEdit(wo.id);setShow(true);setView(null)};
+const statusColors={'Open':'badge-yellow','In Progress':'badge-blue','Completed':'badge-green','On Hold':'badge-purple','Cancelled':'badge-red'};
+const typeColors={'Service':'badge-blue','Repair':'badge-red','Installation':'badge-green','Inspection':'badge-yellow','Cleaning':'badge-purple','Other':'badge-orange'};
+const stats={open:data.filter(w=>w.status==='Open').length,inProgress:data.filter(w=>w.status==='In Progress').length,completed:data.filter(w=>w.status==='Completed').length,totalRevenue:data.filter(w=>w.status==='Completed').reduce((s,w)=>s+(parseFloat(w.totalCost)||0),0)};
+
+if(view){
+const wo=data.find(w=>w.id===view);
+if(!wo)return <p>Not found</p>;
+return(<div>
+<button className="btn btn-outline mb-4" onClick={()=>setView(null)}>{'←'} Back to Work Orders</button>
+<div className="detail-header">
+<div className="flex justify-between items-start">
+<div>
+<h2 className="text-xl font-bold">{wo.title}</h2>
+<p style={{color:'#94a3b8'}}>{wo.clientName} {'•'} {wo.type}</p>
+<div className="flex gap-2 mt-2">
+<span className={'badge '+(statusColors[wo.status]||'badge-yellow')}>{wo.status}</span>
+<span className={'badge '+(typeColors[wo.type]||'badge-blue')}>{wo.type}</span>
+<span className={'badge '+(wo.priority==='High'?'badge-red':wo.priority==='Low'?'badge-green':'badge-yellow')}>{wo.priority}</span>
+</div></div>
+{canEdit(role)&&<button className="btn btn-outline" style={{color:'white',borderColor:'rgba(255,255,255,.3)'}} onClick={()=>openEdit(wo)}>Edit</button>}
+</div></div>
+<div className="grid-2 mb-4">
+<div className="card"><h3 className="font-bold mb-2">Details</h3>
+<div className="info-row"><span className="info-label">Client</span><span className="info-value">{wo.clientName}</span></div>
+<div className="info-row"><span className="info-label">Assigned To</span><span className="info-value">{wo.assigneeName||'Unassigned'}</span></div>
+<div className="info-row"><span className="info-label">Scheduled</span><span className="info-value">{FD(wo.scheduledDate)}</span></div>
+{wo.completedDate&&<div className="info-row"><span className="info-label">Completed</span><span className="info-value">{FD(wo.completedDate)}</span></div>}
+<div className="info-row"><span className="info-label">Description</span><span className="info-value" style={{maxWidth:200,textAlign:'right'}}>{wo.description||'-'}</span></div>
+{wo.notes&&<div className="info-row"><span className="info-label">Notes</span><span className="info-value" style={{maxWidth:200,textAlign:'right'}}>{wo.notes}</span></div>}
+</div>
+<div className="card"><h3 className="font-bold mb-2">Cost Breakdown</h3>
+<div className="info-row"><span className="info-label">Labor Hours</span><span className="info-value">{wo.laborHours||0} hrs</span></div>
+<div className="info-row"><span className="info-label">Labor Rate</span><span className="info-value">{'$$'+(wo.laborRate||0)}/hr</span></div>
+<div className="info-row"><span className="info-label">Labor Cost</span><span className="info-value">{'$$'+(wo.laborCost||0).toLocaleString()}</span></div>
+<div className="info-row"><span className="info-label">Parts Cost</span><span className="info-value">{'$$'+(wo.partsCost||0).toLocaleString()}</span></div>
+<div className="info-row" style={{borderTop:'2px solid #e2e8f0',marginTop:4,paddingTop:8}}><span className="info-label font-bold">Total</span><span className="info-value font-bold" style={{color:'#22c55e',fontSize:18}}>{'$$'+(parseFloat(wo.totalCost)||0).toLocaleString()}</span></div>
+</div></div>
+{(wo.parts||[]).length>0&&<div className="card mb-4"><h3 className="font-bold mb-2">Parts Used</h3>
+<table><thead><tr><th>Item</th><th>Qty</th><th>Unit Cost</th><th>Subtotal</th></tr></thead>
+<tbody>{(wo.parts||[]).map(p=><tr key={p.id}><td>{p.itemName}</td><td>{p.qty}</td><td>{'$$'+(p.unitCost||0)}</td><td className="font-bold">{'$$'+((p.qty||0)*(p.unitCost||0)).toFixed(2)}</td></tr>)}</tbody>
+</table></div>}
+{canEdit(role)&&wo.status!=='Completed'&&wo.status!=='Cancelled'&&<div className="flex gap-2 flex-wrap">
+{wo.status==='Open'&&<button className="btn btn-primary" onClick={()=>changeStatus(wo.id,'In Progress')}>Start Work</button>}
+{wo.status==='In Progress'&&<button className="btn btn-success" onClick={()=>changeStatus(wo.id,'Completed')}>Mark Complete</button>}
+<button className="btn btn-warning" onClick={()=>changeStatus(wo.id,'On Hold')}>Put On Hold</button>
+<button className="btn btn-danger" onClick={()=>changeStatus(wo.id,'Cancelled')}>Cancel</button>
+</div>}
+</div>);
+}
+
+return(<div>
+<div className="grid-4 mb-4">
+<div className="stat"><h3>Open</h3><p style={{color:'#f59e0b'}}>{stats.open}</p></div>
+<div className="stat"><h3>In Progress</h3><p style={{color:'#3b82f6'}}>{stats.inProgress}</p></div>
+<div className="stat"><h3>Completed</h3><p style={{color:'#22c55e'}}>{stats.completed}</p></div>
+{canSeeSensitive(role)&&<div className="stat"><h3>Revenue (Completed)</h3><p style={{fontSize:20}}>{'$$'+stats.totalRevenue.toLocaleString()}</p></div>}
+</div>
+<div className="flex justify-between items-center mb-4">
+<div className="flex gap-2" style={{flexWrap:'wrap'}}>
+{['All','Open','In Progress','On Hold','Completed','Cancelled'].map(s=>(
+<button key={s} className={'btn btn-sm '+(filter===s?'btn-primary':'btn-outline')} onClick={()=>setFilter(s)}>
+{s} ({s==='All'?data.length:data.filter(w=>w.status===s).length})
+</button>))}
+</div>
+<div className="flex gap-2">
+{canSeeSensitive(role)&&<button className="btn btn-outline btn-sm" onClick={()=>exportCSV(['ID','Client','Title','Type','Assignee','Status','Priority','Scheduled','Labor Hrs','Total Cost'],data.map(w=>[w.id,w.clientName,w.title,w.type,w.assigneeName||'',w.status,w.priority,w.scheduledDate,w.laborHours||0,w.totalCost||0]),'work_orders')}>{'📥'} Export</button>}
+{canEdit(role)&&<button className="btn btn-primary" onClick={()=>{setForm(blank);setEdit(null);setShow(true)}}>+ New Work Order</button>}
+</div>
+</div>
+<div className="card" style={{overflow:'auto'}}>
+<table><thead><tr><th>WO #</th><th>Title</th><th>Client</th><th>Type</th><th>Assigned To</th><th>Priority</th><th>Status</th><th>Scheduled</th>{canSeeSensitive(role)&&<th>Cost</th>}<th>Actions</th></tr></thead>
+<tbody>{filtered.sort((a,b)=>b.scheduledDate.localeCompare(a.scheduledDate)).map((wo,i)=>(
+<tr key={wo.id} style={{cursor:'pointer'}} onClick={()=>setView(wo.id)}>
+<td className="text-xs text-gray">#{(filtered.length-i).toString().padStart(4,'0')}</td>
+<td className="font-medium" style={{color:'#3b82f6'}}>{wo.title}</td>
+<td className="text-sm">{wo.clientName}</td>
+<td><span className={'badge '+(typeColors[wo.type]||'badge-blue')} style={{fontSize:10}}>{wo.type}</span></td>
+<td className="text-sm">{wo.assigneeName||<span className="text-gray">Unassigned</span>}</td>
+<td><span className={'badge '+(wo.priority==='High'?'badge-red':wo.priority==='Low'?'badge-green':'badge-yellow')} style={{fontSize:10}}>{wo.priority}</span></td>
+<td><span className={'badge '+(statusColors[wo.status]||'badge-yellow')} style={{fontSize:10}}>{wo.status}</span></td>
+<td className="text-sm">{FD(wo.scheduledDate)}</td>
+{canSeeSensitive(role)&&<td className="font-bold text-sm">{'$$'+(parseFloat(wo.totalCost)||0).toLocaleString()}</td>}
+<td onClick={e=>e.stopPropagation()}><div className="flex gap-1">
+<button className="btn btn-outline btn-sm" onClick={()=>setView(wo.id)}>View</button>
+{canEdit(role)&&<button className="btn btn-outline btn-sm" onClick={()=>openEdit(wo)}>Edit</button>}
+{canEdit(role)&&wo.status==='Open'&&<button className="btn btn-success btn-sm" onClick={()=>changeStatus(wo.id,'In Progress')}>Start</button>}
+{canEdit(role)&&wo.status==='In Progress'&&<button className="btn btn-success btn-sm" onClick={()=>changeStatus(wo.id,'Completed')}>Done</button>}
+</div></td>
+</tr>))}</tbody></table>
+{!filtered.length&&<p className="text-sm text-gray p-4">No work orders found</p>}
+</div>
+<Modal open={show} onClose={()=>{setShow(false);setEdit(null)}} title={edit?'Edit Work Order':'New Work Order'} wide>
+<div className="grid-2">
+<div style={{gridColumn:'span 2'}}><label className="text-xs font-medium text-gray">Title*</label><input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="e.g. Pump Replacement, Monthly Service"/></div>
+<div><label className="text-xs font-medium text-gray">Client*</label>
+<select value={form.clientId} onChange={e=>{const cl=clients.find(x=>x.id===e.target.value);setForm({...form,clientId:e.target.value,clientName:cl?cl.name:''})}}>
+<option value="">Select client...</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+<div><label className="text-xs font-medium text-gray">Assign To</label>
+<select value={form.assigneeId} onChange={e=>{const em=emps.find(x=>x.id===e.target.value);setForm({...form,assigneeId:e.target.value,assigneeName:em?em.name:''})}}>
+<option value="">Select employee...</option>{emps.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
+<div><label className="text-xs font-medium text-gray">Type</label>
+<select value={form.type} onChange={e=>setForm({...form,type:e.target.value})}>
+<option>Service</option><option>Repair</option><option>Installation</option><option>Inspection</option><option>Cleaning</option><option>Other</option></select></div>
+<div><label className="text-xs font-medium text-gray">Priority</label>
+<select value={form.priority} onChange={e=>setForm({...form,priority:e.target.value})}>
+<option>Low</option><option>Normal</option><option>High</option><option>Urgent</option></select></div>
+<div><label className="text-xs font-medium text-gray">Status</label>
+<select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>
+<option>Open</option><option>In Progress</option><option>On Hold</option><option>Completed</option><option>Cancelled</option></select></div>
+<div><label className="text-xs font-medium text-gray">Scheduled Date</label><input type="date" value={form.scheduledDate} onChange={e=>setForm({...form,scheduledDate:e.target.value})}/></div>
+{form.status==='Completed'&&<div><label className="text-xs font-medium text-gray">Completed Date</label><input type="date" value={form.completedDate||''} onChange={e=>setForm({...form,completedDate:e.target.value})}/></div>}
+<div><label className="text-xs font-medium text-gray">Labor Hours</label><input type="number" step="0.5" value={form.laborHours||''} onChange={e=>setForm({...form,laborHours:e.target.value})} placeholder="0"/></div>
+<div><label className="text-xs font-medium text-gray">Labor Rate ($/hr)</label><input type="number" step="0.01" value={form.laborRate||''} onChange={e=>setForm({...form,laborRate:e.target.value})} placeholder="0.00"/></div>
+</div>
+<div className="mt-2"><label className="text-xs font-medium text-gray">Description</label><textarea value={form.description||''} onChange={e=>setForm({...form,description:e.target.value})} rows={2}/></div>
+<div className="mt-3"><h4 className="font-bold text-sm mb-2">Parts / Materials Used</h4>
+<div className="grid-2 mb-2">
+<div><label className="text-xs font-medium text-gray">Item Name</label>
+<input list="inv-items" value={partLine.itemName} onChange={e=>{const inv=inventory.find(i=>i.name===e.target.value);setPartLine({...partLine,itemName:e.target.value,itemId:inv?inv.id:'',unitCost:inv?inv.cost:partLine.unitCost})}} placeholder="Search inventory or type name"/>
+<datalist id="inv-items">{inventory.map(i=><option key={i.id} value={i.name}/>)}</datalist></div>
+<div><label className="text-xs font-medium text-gray">Qty</label><input type="number" min="1" value={partLine.qty} onChange={e=>setPartLine({...partLine,qty:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Unit Cost</label><input type="number" step="0.01" value={partLine.unitCost||''} onChange={e=>setPartLine({...partLine,unitCost:e.target.value})}/></div>
+<div style={{display:'flex',alignItems:'flex-end'}}><button className="btn btn-primary btn-sm" onClick={addPart} style={{width:'100%'}}>+ Add Part</button></div>
+</div>
+{(form.parts||[]).length>0&&<div className="card" style={{padding:8}}>
+<table><thead><tr><th>Item</th><th>Qty</th><th>Unit Cost</th><th>Subtotal</th><th></th></tr></thead>
+<tbody>{(form.parts||[]).map(p=><tr key={p.id}><td className="text-sm">{p.itemName}</td><td>{p.qty}</td><td>{'$$'+(p.unitCost||0)}</td><td className="font-bold">{'$$'+((parseFloat(p.qty)||0)*(parseFloat(p.unitCost)||0)).toFixed(2)}</td>
+<td><button className="btn btn-danger btn-sm" onClick={()=>removePart(p.id)}>✕</button></td></tr>)}</tbody></table>
+<div className="text-sm font-bold mt-2 text-right">Parts Subtotal: {'$$'+((form.parts||[]).reduce((s,p)=>(s+(parseFloat(p.qty)||0)*(parseFloat(p.unitCost)||0)),0)).toFixed(2)}</div>
+</div>}
+</div>
+<div className="mt-2"><label className="text-xs font-medium text-gray">Notes</label><textarea value={form.notes||''} onChange={e=>setForm({...form,notes:e.target.value})} rows={2}/></div>
+<div className="flex justify-between mt-4">
+<div className="text-sm font-bold">Est. Total: {'$$'+((parseFloat(form.laborHours)||0)*(parseFloat(form.laborRate)||0)+(form.parts||[]).reduce((s,p)=>s+(parseFloat(p.qty)||0)*(parseFloat(p.unitCost)||0),0)).toFixed(2)}</div>
+<div className="flex gap-2"><button className="btn btn-outline" onClick={()=>{setShow(false);setEdit(null)}}>Cancel</button>
+<button className="btn btn-primary" onClick={save}>{edit?'Update':'Create'} Work Order</button></div>
+</div>
+</Modal>
+</div>);
+}
+
+/* ===== ROUTE MANAGEMENT ===== */
+function Routes({data,set,emps,clients,L,role}){
+const[show,setShow]=useState(false);const[edit,setEdit]=useState(null);const[selRoute,setSelRoute]=useState(null);
+const[activeDay,setActiveDay]=useState('Monday');
+const days=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const blank={name:'',techId:'',techName:'',day:'Monday',stops:[],notes:'',color:'#3b82f6'};
+const[form,setForm]=useState(blank);
+const[stopClient,setStopClient]=useState('');
+const colors=['#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899'];
+const dayRoutes=data.filter(r=>r.day===activeDay);
+const save=()=>{if(!form.name||!form.techName)return;
+if(edit){set(data.map(r=>r.id===edit?{...form,id:edit}:r));L('Updated Route',form.name)}
+else{set([...data,{...form,id:ID()}]);L('Created Route',form.name+' - '+form.day)}
+setShow(false);setEdit(null);setForm(blank)};
+const addStop=()=>{if(!stopClient)return;const cl=clients.find(c=>c.id===stopClient);if(!cl)return;
+setForm({...form,stops:[...(form.stops||[]),{id:ID(),clientId:cl.id,clientName:cl.name,address:cl.address||'',order:(form.stops||[]).length+1,notes:''}]});
+setStopClient('')};
+const removeStop=(id)=>setForm({...form,stops:(form.stops||[]).filter(s=>s.id!==id)});
+const moveStop=(id,dir)=>{const stops=[...(form.stops||[])];const idx=stops.findIndex(s=>s.id===id);const newIdx=idx+dir;if(newIdx<0||newIdx>=stops.length)return;[stops[idx],stops[newIdx]]=[stops[newIdx],stops[idx]];stops.forEach((s,i)=>s.order=i+1);setForm({...form,stops})};
+
+if(selRoute){
+const rt=data.find(r=>r.id===selRoute);if(!rt)return <p>Not found</p>;
+return(<div>
+<button className="btn btn-outline mb-4" onClick={()=>setSelRoute(null)}>{'←'} Back to Routes</button>
+<div className="detail-header" style={{background:'linear-gradient(135deg,'+rt.color+','+rt.color+'cc)'}}>
+<div className="flex justify-between items-center">
+<div><h2 className="text-xl font-bold">{rt.name}</h2>
+<p style={{color:'rgba(255,255,255,.8)'}}>{rt.day} {'•'} {rt.techName} {'•'} {(rt.stops||[]).length} stops</p></div>
+{canEdit(role)&&<button className="btn btn-outline" style={{color:'white',borderColor:'rgba(255,255,255,.3)'}} onClick={()=>{setForm(rt);setEdit(rt.id);setShow(true);setSelRoute(null)}}>Edit Route</button>}
+</div></div>
+<div className="card">
+<h3 className="font-bold mb-3">Stop List</h3>
+{(rt.stops||[]).length?<div>{(rt.stops||[]).sort((a,b)=>a.order-b.order).map((stop,i)=>(
+<div key={stop.id} className="flex items-center gap-3 p-3 mb-2" style={{background:'#f8fafc',borderRadius:8,borderLeft:'4px solid '+rt.color}}>
+<div style={{width:28,height:28,borderRadius:'50%',background:rt.color,color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:12,flexShrink:0}}>{i+1}</div>
+<div style={{flex:1}}>
+<div className="font-medium">{stop.clientName}</div>
+{stop.address&&<div className="text-xs text-gray">{stop.address}</div>}
+{stop.notes&&<div className="text-xs" style={{color:'#f59e0b'}}>{stop.notes}</div>}
+</div>
+<span className="badge badge-blue text-xs">Stop {stop.order}</span>
+</div>))}</div>:<p className="text-sm text-gray">No stops added</p>}
+</div>
+</div>);
+}
+
+return(<div>
+<div className="flex gap-2 mb-4" style={{flexWrap:'wrap'}}>
+{days.map(d=>{const cnt=data.filter(r=>r.day===d).length;return(<button key={d} className={'btn '+(activeDay===d?'btn-primary':'btn-outline')} onClick={()=>setActiveDay(d)}>
+{d.slice(0,3)}{cnt>0&&<span style={{marginLeft:4,background:'white',color:'#3b82f6',borderRadius:'50%',width:16,height:16,fontSize:10,display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{cnt}</span>}
+</button>)})}
+{canEdit(role)&&<button className="btn btn-primary" style={{marginLeft:'auto'}} onClick={()=>{setForm({...blank,day:activeDay});setEdit(null);setShow(true)}}>+ Add Route</button>}
+</div>
+<div className="mb-2"><h3 className="font-bold">{activeDay} Routes ({dayRoutes.length})</h3></div>
+{dayRoutes.length?<div className="grid-2">{dayRoutes.map(rt=>(
+<div key={rt.id} className="card" style={{borderTop:'4px solid '+rt.color,cursor:'pointer'}} onClick={()=>setSelRoute(rt.id)}>
+<div className="flex justify-between items-start mb-2">
+<div><h3 className="font-bold" style={{color:rt.color}}>{rt.name}</h3>
+<p className="text-sm text-gray">{rt.techName}</p></div>
+<span className="badge badge-blue">{(rt.stops||[]).length} stops</span>
+</div>
+{(rt.stops||[]).length>0&&<div className="mt-2">{(rt.stops||[]).slice(0,4).map((s,i)=>(
+<div key={s.id} className="flex items-center gap-2 text-xs mb-1">
+<span style={{width:18,height:18,borderRadius:'50%',background:rt.color,color:'white',display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:700,flexShrink:0}}>{i+1}</span>
+<span>{s.clientName}</span>
+</div>))}
+{(rt.stops||[]).length>4&&<p className="text-xs text-gray mt-1">+{(rt.stops||[]).length-4} more stops</p>}
+</div>}
+<div className="flex gap-2 mt-3" onClick={e=>e.stopPropagation()}>
+<button className="btn btn-outline btn-sm" onClick={()=>setSelRoute(rt.id)}>View</button>
+{canEdit(role)&&<button className="btn btn-outline btn-sm" onClick={()=>{setForm(rt);setEdit(rt.id);setShow(true)}}>Edit</button>}
+{canEdit(role)&&<button className="btn btn-danger btn-sm" onClick={()=>{if(confirm('Delete route?')){set(data.filter(r=>r.id!==rt.id));L('Deleted Route',rt.name)}}}>Del</button>}
+</div>
+</div>))}
+</div>:
+<div className="card" style={{textAlign:'center',padding:40}}>
+<div style={{fontSize:40,marginBottom:12}}>{'🗺'}</div>
+<p className="text-gray">No routes for {activeDay}</p>
+{canEdit(role)&&<button className="btn btn-primary mt-4" onClick={()=>{setForm({...blank,day:activeDay});setEdit(null);setShow(true)}}>Add {activeDay} Route</button>}
+</div>}
+<div className="card mt-4"><h3 className="font-bold mb-3">Weekly Summary</h3>
+<table><thead><tr><th>Day</th><th>Routes</th><th>Total Stops</th><th>Technicians</th></tr></thead>
+<tbody>{days.map(d=>{const dr=data.filter(r=>r.day===d);const stops=dr.reduce((s,r)=>s+(r.stops||[]).length,0);const techs=[...new Set(dr.map(r=>r.techName))];return(
+<tr key={d} style={{background:d===activeDay?'#f0f9ff':'white',cursor:'pointer'}} onClick={()=>setActiveDay(d)}>
+<td className="font-medium">{d}</td><td>{dr.length}</td><td>{stops}</td>
+<td className="text-sm">{techs.join(', ')||'-'}</td></tr>)})}</tbody></table>
+</div>
+<Modal open={show} onClose={()=>{setShow(false);setEdit(null)}} title={edit?'Edit Route':'Add Route'} wide>
+<div className="grid-2">
+<div><label className="text-xs font-medium text-gray">Route Name*</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="e.g. North Route, Beach Route"/></div>
+<div><label className="text-xs font-medium text-gray">Day</label>
+<select value={form.day} onChange={e=>setForm({...form,day:e.target.value})}>
+{days.map(d=><option key={d}>{d}</option>)}</select></div>
+<div><label className="text-xs font-medium text-gray">Technician*</label>
+<select value={form.techId} onChange={e=>{const em=emps.find(x=>x.id===e.target.value);setForm({...form,techId:e.target.value,techName:em?em.name:''})}}>
+<option value="">Select...</option>{emps.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select></div>
+<div><label className="text-xs font-medium text-gray">Route Color</label>
+<div className="flex gap-2 mt-1">{colors.map(col=><div key={col} onClick={()=>setForm({...form,color:col})} style={{width:28,height:28,borderRadius:'50%',background:col,cursor:'pointer',border:form.color===col?'3px solid #1e293b':'3px solid transparent'}}></div>)}</div>
+</div>
+</div>
+<div className="mt-3"><h4 className="font-bold text-sm mb-2">Stops</h4>
+<div className="flex gap-2 mb-3">
+<select value={stopClient} onChange={e=>setStopClient(e.target.value)} style={{flex:1}}>
+<option value="">Add client stop...</option>{clients.filter(cl=>!(form.stops||[]).find(s=>s.clientId===cl.id)).map(c=><option key={c.id} value={c.id}>{c.name}{c.address?' - '+c.address:''}</option>)}</select>
+<button className="btn btn-primary btn-sm" onClick={addStop}>Add Stop</button>
+</div>
+{(form.stops||[]).length>0&&<div>{(form.stops||[]).sort((a,b)=>a.order-b.order).map((stop,i)=>(
+<div key={stop.id} className="flex items-center gap-2 p-2 mb-1" style={{background:'#f8fafc',borderRadius:6}}>
+<span style={{width:24,height:24,borderRadius:'50%',background:form.color,color:'white',display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:11,flexShrink:0}}>{i+1}</span>
+<span className="text-sm font-medium" style={{flex:1}}>{stop.clientName}</span>
+{stop.address&&<span className="text-xs text-gray">{stop.address.slice(0,25)}</span>}
+<div className="flex gap-1">
+{i>0&&<button className="btn btn-outline btn-sm" style={{padding:'2px 6px'}} onClick={()=>moveStop(stop.id,-1)}>{'↑'}</button>}
+{i<(form.stops||[]).length-1&&<button className="btn btn-outline btn-sm" style={{padding:'2px 6px'}} onClick={()=>moveStop(stop.id,1)}>{'↓'}</button>}
+<button className="btn btn-danger btn-sm" style={{padding:'2px 6px'}} onClick={()=>removeStop(stop.id)}>✕</button>
+</div>
+</div>))}</div>}
+{!(form.stops||[]).length&&<p className="text-sm text-gray">No stops added yet</p>}
+</div>
+<div className="mt-2"><label className="text-xs font-medium text-gray">Notes</label><textarea value={form.notes||''} onChange={e=>setForm({...form,notes:e.target.value})} rows={2}/></div>
+<div className="flex justify-between mt-4"><button className="btn btn-outline" onClick={()=>{setShow(false);setEdit(null)}}>Cancel</button>
+<button className="btn btn-primary" onClick={save}>{edit?'Update':'Create'} Route</button></div>
+</Modal>
+</div>);
+}
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
