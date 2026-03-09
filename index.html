@@ -100,6 +100,7 @@ const ID=()=>'_'+Math.random().toString(36).substr(2,9);
 const FD=(d)=>d?new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
 const NOW=()=>new Date().toISOString().split('T')[0];
 const log=(logs,setLogs,action,details,user)=>{const l=[{id:ID(),action,details,timestamp:new Date().toISOString(),user:user||'Admin'},...logs];setLogs(l.slice(0,500))};
+const exportCSV=(headers,rows,filename)=>{const csv=[headers.join(','),...rows.map(r=>r.map(c=>'"'+(c||'').toString().replace(/"/g,'""')+'"').join(','))].join('\n');const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename+'.csv';a.click();URL.revokeObjectURL(url)};
 
 function Modal({open,onClose,title,children,wide}){
 if(!open)return null;
@@ -116,8 +117,8 @@ return(<div className="flex items-center gap-3">
 </div>);
 }
 
-const PAGES=['Dashboard','Employees','Clients','Complaints','Payroll','Job Positions','Applicants','Tasks','Inventory','Messages','Birthdays','Audit Log','Analytics'];
-const ICONS=['\u{1F4CA}','\u{1F465}','\u{1F3E2}','\u{1F4CB}','\u{1F4B0}','\u{1F4BC}','\u{1F4DD}','\u{2705}','\u{1F4E6}','\u{1F4AC}','\u{1F382}','\u{1F4DC}','\u{1F4C8}'];
+const PAGES=['Dashboard','Employees','Clients','Schedule','Expenses','Complaints','Payroll','Job Positions','Applicants','Tasks','Inventory','Announcements','Messages','Birthdays','Audit Log','Analytics'];
+const ICONS=['\u{1F4CA}','\u{1F465}','\u{1F3E2}','\u{1F4C5}','\u{1F4B3}','\u{1F4CB}','\u{1F4B0}','\u{1F4BC}','\u{1F4DD}','\u2705','\u{1F4E6}','\u{1F4E2}','\u{1F4AC}','\u{1F382}','\u{1F4DC}','\u{1F4C8}'];
 
 /* ===== ROLE-BASED ACCESS ===== */
 const ROLES={OWNER:'Owner',MANAGER:'Manager',EMPLOYEE:'Employee'};
@@ -226,6 +227,9 @@ const[training,setTraining]=useLS('training',[]);
 const[reviews,setReviews]=useLS('reviews',[]);
 const[pto,setPto]=useLS('pto',[]);
 const[documents,setDocs]=useLS('documents',[]);
+const[schedules,setSchedules]=useLS('schedules',[]);
+const[expenses,setExpenses]=useLS('expenses',[]);
+const[announcements,setAnnouncements]=useLS('announcements',[]);
 const L=(a,d)=>log(logs,setLogs,a,d,currentUser?.name||'System');
 
 const handleSetup=()=>{
@@ -259,6 +263,7 @@ return(<div className="flex">
 {allPages.map((p,i)=>(
 <div key={p} className={`sidebar-item${page===p?' active':''}`} onClick={()=>setPage(p)}>
 <span>{allIcons[i]}</span><span>{p}</span>
+{p==='Announcements'&&(announcements||[]).filter(a=>!a.readBy||!a.readBy[currentUser.id]).length>0&&<span style={{marginLeft:'auto',background:'#ef4444',color:'white',borderRadius:'50%',width:18,height:18,fontSize:10,display:'flex',alignItems:'center',justifyContent:'center'}}>{(announcements||[]).filter(a=>!a.readBy||!a.readBy[currentUser.id]).length}</span>}
 </div>
 ))}
 </div>
@@ -266,8 +271,9 @@ return(<div className="flex">
 <div className="flex justify-between items-center mb-4">
 <h1 className="text-2xl font-bold">{page}</h1>
 <span className="text-sm text-gray">{new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</span>
+<NotificationBell emps={emps} pto={pto} training={training} inventory={inventory}/>
 </div>
-{page==='Dashboard'&&<Dashboard emps={emps} clients={clients} complaints={complaints} tasks={tasks} payroll={payroll} role={role} training={training} pto={pto}/>}
+{page==='Dashboard'&&<Dashboard emps={emps} clients={clients} complaints={complaints} tasks={tasks} payroll={payroll} role={role} training={training} pto={pto} schedules={schedules} expenses={expenses} announcements={announcements}/>}
 {page==='Employees'&&<Employees data={emps} set={setEmps} L={L} role={role} complaints={complaints} setComp={setComp} training={training} setTraining={setTraining} payroll={payroll} setPay={setPay} reviews={reviews} setReviews={setReviews} pto={pto} setPto={setPto} documents={documents} setDocs={setDocs}/>}
 {page==='Clients'&&<Clients data={clients} set={setCli} L={L} role={role}/>}
 {page==='Complaints'&&<Complaints data={complaints} set={setComp} emps={emps} L={L} role={role}/>}
@@ -276,28 +282,41 @@ return(<div className="flex">
 {page==='Applicants'&&<Applicants data={applicants} set={setApp} positions={positions} L={L} role={role}/>}
 {page==='Tasks'&&<Tasks data={tasks} set={setTasks} emps={emps} L={L} role={role}/>}
 {page==='Inventory'&&<Inventory data={inventory} set={setInv} L={L} role={role}/>}
+{page==='Schedule'&&<Schedule data={schedules} set={setSchedules} emps={emps} L={L} role={role}/>}
+{page==='Expenses'&&<Expenses data={expenses} set={setExpenses} L={L} role={role}/>}
+{page==='Announcements'&&<Announcements data={announcements} set={setAnnouncements} currentUser={currentUser} L={L} role={role}/>}
 {page==='Messages'&&<Messages data={messages} set={setMsg} emps={emps} currentUser={currentUser}/>}
 {page==='Birthdays'&&<Birthdays emps={emps}/>}
 {page==='Audit Log'&&<AuditLog data={logs}/>}
-{page==='Analytics'&&<Analytics emps={emps} clients={clients} complaints={complaints} payroll={payroll} tasks={tasks} role={role} training={training}/>}
+{page==='Analytics'&&<Analytics emps={emps} clients={clients} complaints={complaints} payroll={payroll} tasks={tasks} role={role} training={training} expenses={expenses}/>}
 {page==='Users'&&canSeeSensitive(role)&&<UserManagement users={users} setUsers={setUsers} L={L} currentUser={currentUser}/>}
 </div>
 </div>);
 }
 
-function Dashboard({emps,clients,complaints,tasks,payroll,role,training,pto}){
+function Dashboard({emps,clients,complaints,tasks,payroll,role,training,pto,schedules,expenses,announcements}){
 const active=complaints.filter(c=>c.status!=='Resolved').length;
 const pending=tasks.filter(t=>t.status!=='Done').length;
 const today=new Date();
 const upcomingBdays=emps.filter(e=>{if(!e.birthday)return false;const b=new Date(e.birthday+'T12:00:00');const diff=Math.ceil((new Date(today.getFullYear(),b.getMonth(),b.getDate())-today)/(1000*60*60*24));return diff>=0&&diff<=30});
 const expiringTraining=training.filter(t=>{if(!t.expiryDate)return false;const d=new Date(t.expiryDate);const diff=Math.ceil((d-today)/(1000*60*60*24));return diff>=0&&diff<=30});
 const pendingPto=pto.filter(p=>p.status==='Pending').length;
+const todayShifts=(schedules||[]).filter(s=>s.date===NOW());
+const thisMonthExpenses=(expenses||[]).filter(e=>{const d=new Date(e.date+'T12:00:00');const n=new Date();return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear()});
+const monthExpTotal=thisMonthExpenses.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+const recentAnn=(announcements||[]).slice(-3).reverse();
 return(<div>
 <div className="grid-4 mb-4">
 <div className="stat"><h3>Total Employees</h3><p>{emps.length}</p></div>
 <div className="stat"><h3>Active Clients</h3><p>{clients.length}</p></div>
 <div className="stat"><h3>Open Complaints</h3><p style={{color:active>0?'#ef4444':'#22c55e'}}>{active}</p></div>
 <div className="stat"><h3>Pending Tasks</h3><p style={{color:pending>0?'#f59e0b':'#22c55e'}}>{pending}</p></div>
+</div>
+<div className="grid-4 mb-4">
+<div className="stat"><h3>Today Shifts</h3><p style={{color:'#3b82f6'}}>{todayShifts.length}</p></div>
+<div className="stat"><h3>Pending PTO</h3><p style={{color:pendingPto>0?'#f59e0b':'#22c55e'}}>{pendingPto}</p></div>
+{canSeeSensitive(role)&&<div className="stat"><h3>Month Expenses</h3><p style={{fontSize:22}}>{'$'+monthExpTotal.toLocaleString()}</p></div>}
+<div className="stat"><h3>Expiring Certs</h3><p style={{color:expiringTraining.length>0?'#f59e0b':'#22c55e'}}>{expiringTraining.length}</p></div>
 </div>
 <div className="grid-3 mb-4">
 {upcomingBdays.length>0&&<div className="card" style={{borderLeft:'4px solid #f59e0b'}}>
@@ -1107,11 +1126,12 @@ return(<div>
 </div>);
 }
 
-function Analytics({emps,clients,complaints,payroll,tasks,role,training}){
+function Analytics({emps,clients,complaints,payroll,tasks,role,training,expenses}){
 const depts={};emps.forEach(e=>{const d=e.department||'Other';depts[d]=(depts[d]||0)+1});
 const statusCount={};tasks.forEach(t=>{const s=t.status||'Unknown';statusCount[s]=(statusCount[s]||0)+1});
 const compStatus={};complaints.forEach(c=>{const s=c.status||'Unknown';compStatus[s]=(compStatus[s]||0)+1});
 const totalPay=payroll.reduce((s,p)=>s+(p.amount||0),0);
+const totalExpenses=(expenses||[]).reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
 const avgPay=payroll.length?totalPay/payroll.length:0;
 const today=new Date();
 const expiringCerts=training.filter(t=>{if(!t.expiryDate)return false;const d=new Date(t.expiryDate);return(d-today)/(1000*60*60*24)<=30&&d>today}).length;
@@ -1154,10 +1174,267 @@ return(<div>
 <div className="mb-2"><span className="text-sm text-gray">Open Complaints:</span> <span className="font-bold">{complaints.filter(c=>c.status!=='Resolved').length}</span></div>
 <div className="mb-2"><span className="text-sm text-gray">Pending Tasks:</span> <span className="font-bold">{tasks.filter(t=>t.status!=='Done').length}</span></div>
 <div className="mb-2"><span className="text-sm text-gray">Expiring Certs (30d):</span> <span className="font-bold" style={{color:expiringCerts>0?'#f59e0b':'#22c55e'}}>{expiringCerts}</span></div>
+{canSeeSensitive(role)&&<div className="mb-2"><span className="text-sm text-gray">Total Expenses:</span> <span className="font-bold">{'$$'+totalExpenses.toLocaleString()}</span></div>}
 </div>
 </div>
 </div>);
 }
+
+/* ===== NOTIFICATION BELL ===== */
+function NotificationBell({emps,pto,training,inventory}){
+const[open,setOpen]=useState(false);
+const today=new Date();
+const alerts=[];
+const pendingPto=pto.filter(p=>p.status==='Pending');
+if(pendingPto.length>0)alerts.push({msg:pendingPto.length+' pending time-off request'+(pendingPto.length>1?'s':''),color:'#3b82f6'});
+const expCerts=training.filter(t=>{if(!t.expiryDate)return false;const d=new Date(t.expiryDate);return(d-today)/86400000<=30&&d>today});
+if(expCerts.length>0)alerts.push({msg:expCerts.length+' certification'+(expCerts.length>1?'s':'')+' expiring soon',color:'#f59e0b'});
+const expiredCerts=training.filter(t=>t.expiryDate&&new Date(t.expiryDate)<today);
+if(expiredCerts.length>0)alerts.push({msg:expiredCerts.length+' expired certification'+(expiredCerts.length>1?'s':''),color:'#ef4444'});
+const lowStock=inventory.filter(i=>i.quantity<=i.minStock&&i.minStock>0);
+if(lowStock.length>0)alerts.push({msg:lowStock.length+' inventory item'+(lowStock.length>1?'s':'')+' low on stock',color:'#ef4444'});
+return(<div style={{position:'relative'}}>
+<button className="btn btn-outline" style={{position:'relative',padding:'8px 12px'}} onClick={()=>setOpen(!open)}>
+{'🔔'}{alerts.length>0&&<span style={{position:'absolute',top:-4,right:-4,background:'#ef4444',color:'white',borderRadius:'50%',width:18,height:18,fontSize:10,display:'flex',alignItems:'center',justifyContent:'center'}}>{alerts.length}</span>}
+</button>
+{open&&<div style={{position:'absolute',right:0,top:'110%',background:'white',border:'1px solid #e2e8f0',borderRadius:8,width:300,zIndex:100,boxShadow:'0 4px 20px rgba(0,0,0,.15)'}}>
+<div style={{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',fontWeight:600,fontSize:14}}>Notifications</div>
+{alerts.length?alerts.map((a,i)=><div key={i} style={{padding:'10px 16px',borderBottom:'1px solid #f1f5f9',display:'flex',alignItems:'center',gap:8}}>
+<span style={{width:8,height:8,borderRadius:'50%',background:a.color,display:'inline-block',flexShrink:0}}></span>
+<span style={{fontSize:13}}>{a.msg}</span></div>):
+<div style={{padding:16,fontSize:13,color:'#64748b',textAlign:'center'}}>All clear - no alerts!</div>}
+<div style={{padding:'8px 16px'}}><button className="btn btn-outline btn-sm" style={{width:'100%'}} onClick={()=>setOpen(false)}>Close</button></div>
+</div>}
+</div>);
+}
+
+/* ===== SCHEDULE / SHIFT MANAGEMENT ===== */
+function Schedule({data,set,emps,L,role}){
+const[show,setShow]=useState(false);const[edit,setEdit]=useState(null);
+const[week,setWeek]=useState(NOW());
+const blank={employeeId:'',employeeName:'',date:NOW(),startTime:'08:00',endTime:'17:00',position:'',notes:'',status:'Scheduled'};
+const[form,setForm]=useState(blank);
+const getWeekDates=(startDate)=>{const d=new Date(startDate+'T12:00:00');const day=d.getDay();const mon=new Date(d);mon.setDate(d.getDate()-(day===0?6:day-1));return Array.from({length:7},(_,i)=>{const nd=new Date(mon);nd.setDate(mon.getDate()+i);return nd.toISOString().split('T')[0]})};
+const weekDates=getWeekDates(week);
+const weekShifts=data.filter(s=>weekDates.includes(s.date));
+const save=()=>{if(!form.employeeName||!form.date)return;
+if(edit){set(data.map(s=>s.id===edit?{...form,id:edit}:s));L('Updated Shift',form.employeeName)}
+else{set([...data,{...form,id:ID()}]);L('Added Shift',form.employeeName+' - '+form.date)}
+setShow(false);setEdit(null);setForm(blank)};
+const navWeek=(dir)=>{const d=new Date(week+'T12:00:00');d.setDate(d.getDate()+dir*7);setWeek(d.toISOString().split('T')[0])};
+const exportShifts=()=>exportCSV(['Employee','Date','Start','End','Position','Status'],data.map(s=>[s.employeeName,s.date,s.startTime,s.endTime,s.position||'',s.status]),'shifts');
+return(<div>
+<div className="flex justify-between items-center mb-4">
+<div className="flex gap-2 items-center">
+<button className="btn btn-outline btn-sm" onClick={()=>navWeek(-1)}>{'< Prev'}</button>
+<span className="font-medium text-sm">{new Date(weekDates[0]+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})} - {new Date(weekDates[6]+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>
+<button className="btn btn-outline btn-sm" onClick={()=>navWeek(1)}>{'Next >'}</button>
+<button className="btn btn-outline btn-sm" onClick={()=>setWeek(NOW())}>Today</button>
+</div>
+<div className="flex gap-2">
+{canSeeSensitive(role)&&<button className="btn btn-outline btn-sm" onClick={exportShifts}>{'📥'} Export</button>}
+{canEdit(role)&&<button className="btn btn-primary" onClick={()=>{setForm({...blank,date:week});setEdit(null);setShow(true)}}>+ Add Shift</button>}
+</div>
+</div>
+<div style={{overflowX:'auto'}} className="card">
+<table><thead><tr>
+<th style={{minWidth:120}}>Employee</th>
+{weekDates.map(d=><th key={d} style={{minWidth:100,textAlign:'center',background:d===NOW()?'#dbeafe':'#f8fafc'}}>
+<div>{new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'})}</div>
+<div className="text-xs" style={{color:'#64748b'}}>{new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
+</th>)}
+</tr></thead>
+<tbody>{emps.filter(e=>e.status==='Active'||!e.status).map(emp=>{
+const empShifts=weekShifts.filter(s=>s.employeeName===emp.name||s.employeeId===emp.id);
+return(<tr key={emp.id}>
+<td><div className="flex items-center gap-2">
+<div className="avatar" style={{width:28,height:28,fontSize:11}}>{emp.photo?<img src={emp.photo}/>:(emp.name||'?')[0]}</div>
+<span className="text-sm font-medium">{emp.name}</span></div></td>
+{weekDates.map(d=>{const shift=empShifts.find(s=>s.date===d);return(<td key={d} style={{textAlign:'center',background:d===NOW()?'#f0f9ff':'white',verticalAlign:'top',padding:4}}>
+{shift?(<div style={{cursor:'pointer',background:shift.status==='Off'?'#94a3b8':shift.status==='Sick'?'#ef4444':'#3b82f6',color:'white',borderRadius:6,padding:'4px 8px',fontSize:11}} onClick={()=>{if(canEdit(role)){setForm(shift);setEdit(shift.id);setShow(true)}}}>
+<div>{shift.startTime}-{shift.endTime}</div>
+<div style={{fontSize:10,opacity:.85}}>{shift.status}</div>
+</div>):(canEdit(role)?<button style={{fontSize:10,background:'none',border:'1px dashed #d1d5db',borderRadius:4,padding:'2px 6px',cursor:'pointer',color:'#94a3b8'}} onClick={()=>{setForm({...blank,employeeId:emp.id,employeeName:emp.name,date:d});setEdit(null);setShow(true)}}>+</button>:<span style={{color:'#e2e8f0',fontSize:12}}>-</span>)}
+</td>)})}
+</tr>)})}</tbody></table>
+</div>
+<div className="mt-4 card"><h3 className="font-bold mb-2">Shift Log</h3>
+<div style={{overflow:'auto'}}><table><thead><tr><th>Employee</th><th>Date</th><th>Start</th><th>End</th><th>Position</th><th>Status</th>{canEdit(role)&&<th>Actions</th>}</tr></thead>
+<tbody>{data.sort((a,b)=>b.date.localeCompare(a.date)).slice(0,50).map(s=>(<tr key={s.id}>
+<td className="font-medium">{s.employeeName}</td>
+<td className="text-sm">{FD(s.date)}</td>
+<td className="text-sm">{s.startTime}</td><td className="text-sm">{s.endTime}</td>
+<td className="text-sm">{s.position||'-'}</td>
+<td><span className={'badge '+(s.status==='Scheduled'?'badge-blue':s.status==='Completed'?'badge-green':s.status==='Sick'?'badge-red':'badge-yellow')}>{s.status}</span></td>
+{canEdit(role)&&<td><div className="flex gap-2">
+<button className="btn btn-outline btn-sm" onClick={()=>{setForm(s);setEdit(s.id);setShow(true)}}>Edit</button>
+<button className="btn btn-danger btn-sm" onClick={()=>{set(data.filter(x=>x.id!==s.id));L('Deleted Shift',s.employeeName)}}>Del</button>
+</div></td>}
+</tr>))}</tbody></table>
+{!data.length&&<p className="text-sm text-gray p-4">No shifts scheduled yet</p>}
+</div></div>
+<Modal open={show} onClose={()=>{setShow(false);setEdit(null)}} title={edit?'Edit Shift':'Add Shift'}>
+<div className="grid-2">
+<div><label className="text-xs font-medium text-gray">Employee*</label>
+<select value={form.employeeId} onChange={e=>{const emp=emps.find(x=>x.id===e.target.value);setForm({...form,employeeId:e.target.value,employeeName:emp?emp.name:''})}}>
+<option value="">Select...</option>{emps.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
+</select></div>
+<div><label className="text-xs font-medium text-gray">Date*</label><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Start Time</label><input type="time" value={form.startTime} onChange={e=>setForm({...form,startTime:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">End Time</label><input type="time" value={form.endTime} onChange={e=>setForm({...form,endTime:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Position/Role</label><input value={form.position||''} onChange={e=>setForm({...form,position:e.target.value})} placeholder="e.g. Pool Technician"/></div>
+<div><label className="text-xs font-medium text-gray">Status</label>
+<select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>
+<option>Scheduled</option><option>Completed</option><option>Sick</option><option>Off</option><option>No Show</option>
+</select></div>
+</div>
+<div className="mt-2"><label className="text-xs font-medium text-gray">Notes</label><textarea value={form.notes||''} onChange={e=>setForm({...form,notes:e.target.value})} rows={2}/></div>
+<div className="flex justify-between mt-4"><button className="btn btn-outline" onClick={()=>{setShow(false);setEdit(null)}}>Cancel</button>
+<button className="btn btn-primary" onClick={save}>{edit?'Update':'Add'} Shift</button></div>
+</Modal>
+</div>);
+}
+
+/* ===== EXPENSES TRACKER ===== */
+function Expenses({data,set,L,role}){
+const[show,setShow]=useState(false);const[edit,setEdit]=useState(null);const[catFilter,setCatFilter]=useState('All');
+const blank={description:'',category:'Supplies',amount:'',date:NOW(),vendor:'',notes:'',status:'Pending'};
+const[form,setForm]=useState(blank);
+const cats=['Supplies','Equipment','Fuel','Labor','Chemicals','Repairs','Marketing','Utilities','Other'];
+const filtered=catFilter==='All'?data:data.filter(e=>e.category===catFilter);
+const total=data.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+const thisMonthData=data.filter(e=>{const d=new Date(e.date+'T12:00:00');const n=new Date();return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear()});
+const monthTotal=thisMonthData.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+const byCat={};data.forEach(e=>{const c=e.category||'Other';byCat[c]=(byCat[c]||0)+(parseFloat(e.amount)||0)});
+const maxCatVal=Object.values(byCat).length?Math.max(...Object.values(byCat)):1;
+const save=()=>{if(!form.description||!form.amount)return;
+if(edit){set(data.map(e=>e.id===edit?{...form,id:edit,amount:parseFloat(form.amount)}:e));L('Updated Expense',form.description)}
+else{set([...data,{...form,id:ID(),amount:parseFloat(form.amount)}]);L('Added Expense','$'+form.amount+' - '+form.description)}
+setShow(false);setEdit(null);setForm(blank)};
+const exportExp=()=>exportCSV(['Date','Description','Category','Amount','Vendor','Status'],data.map(e=>[e.date,e.description,e.category,e.amount,e.vendor||'',e.status]),'expenses');
+return(<div>
+<div className="grid-3 mb-4">
+<div className="stat"><h3>Total All Time</h3><p>{'$'+total.toLocaleString()}</p></div>
+<div className="stat"><h3>This Month</h3><p style={{color:'#f59e0b'}}>{'$'+monthTotal.toLocaleString()}</p></div>
+<div className="stat"><h3>Records</h3><p>{data.length}</p></div>
+</div>
+<div className="grid-2 mb-4">
+<div className="card"><h3 className="font-bold mb-3">Spending by Category</h3>
+{Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([cat,val])=><div key={cat} className="mb-3">
+<div className="flex justify-between text-sm mb-1"><span>{cat}</span><span className="font-bold">{'$'+val.toLocaleString()}</span></div>
+<div style={{height:6,background:'#e2e8f0',borderRadius:3,overflow:'hidden'}}>
+<div style={{height:'100%',width:(val/maxCatVal*100)+'%',background:'#3b82f6',borderRadius:3}}></div>
+</div></div>)}
+{!Object.keys(byCat).length&&<p className="text-sm text-gray">No expense data yet</p>}
+</div>
+<div className="card"><h3 className="font-bold mb-3">Status Overview</h3>
+<div className="info-row"><span className="info-label">Pending Approval</span><span style={{color:'#f59e0b',fontWeight:700}}>{data.filter(e=>e.status==='Pending').length}</span></div>
+<div className="info-row"><span className="info-label">Approved</span><span style={{color:'#22c55e',fontWeight:700}}>{data.filter(e=>e.status==='Approved').length}</span></div>
+<div className="info-row"><span className="info-label">Rejected</span><span style={{color:'#ef4444',fontWeight:700}}>{data.filter(e=>e.status==='Rejected').length}</span></div>
+<div className="info-row"><span className="info-label">Avg per Record</span><span className="info-value">{'$'+(data.length?Math.round(total/data.length).toLocaleString():0)}</span></div>
+<div className="info-row"><span className="info-label">Top Category</span><span className="info-value">{Object.keys(byCat).sort((a,b)=>byCat[b]-byCat[a])[0]||'N/A'}</span></div>
+</div>
+</div>
+<div className="flex justify-between items-center mb-4">
+<div className="flex gap-2" style={{flexWrap:'wrap'}}>
+{['All',...cats].map(c=><button key={c} className={'btn btn-sm '+(catFilter===c?'btn-primary':'btn-outline')} onClick={()=>setCatFilter(c)}>{c}</button>)}
+</div>
+<div className="flex gap-2">
+{canSeeSensitive(role)&&<button className="btn btn-outline btn-sm" onClick={exportExp}>{'📥'} Export CSV</button>}
+{canEdit(role)&&<button className="btn btn-primary" onClick={()=>{setForm(blank);setEdit(null);setShow(true)}}>+ Add Expense</button>}
+</div>
+</div>
+<div className="card" style={{overflow:'auto'}}>
+<table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Amount</th><th>Vendor</th><th>Status</th>{canEdit(role)&&<th>Actions</th>}</tr></thead>
+<tbody>{filtered.sort((a,b)=>b.date.localeCompare(a.date)).map(e=>(<tr key={e.id}>
+<td className="text-sm">{FD(e.date)}</td>
+<td className="font-medium">{e.description}</td>
+<td><span className="badge badge-blue">{e.category}</span></td>
+<td className="font-bold">{'$'+(parseFloat(e.amount)||0).toLocaleString()}</td>
+<td className="text-sm">{e.vendor||'-'}</td>
+<td><span className={'badge '+(e.status==='Approved'?'badge-green':e.status==='Rejected'?'badge-red':'badge-yellow')}>{e.status}</span></td>
+{canEdit(role)&&<td><div className="flex gap-2">
+<button className="btn btn-outline btn-sm" onClick={()=>{setForm(e);setEdit(e.id);setShow(true)}}>Edit</button>
+{e.status==='Pending'&&canSeeSensitive(role)&&<button className="btn btn-success btn-sm" onClick={()=>{set(data.map(x=>x.id===e.id?{...x,status:'Approved'}:x));L('Approved Expense',e.description)}}>OK</button>}
+<button className="btn btn-danger btn-sm" onClick={()=>{set(data.filter(x=>x.id!==e.id));L('Deleted Expense',e.description)}}>Del</button>
+</div></td>}
+</tr>))}</tbody></table>
+{!filtered.length&&<p className="text-sm text-gray p-4">No expenses found</p>}
+</div>
+<Modal open={show} onClose={()=>{setShow(false);setEdit(null)}} title={edit?'Edit Expense':'Add Expense'}>
+<div className="grid-2">
+<div style={{gridColumn:'span 2'}}><label className="text-xs font-medium text-gray">Description*</label><input value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="e.g. Pool chemicals for Route 12"/></div>
+<div><label className="text-xs font-medium text-gray">Amount*</label><input type="number" step="0.01" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Category</label><select value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>
+{cats.map(c=><option key={c}>{c}</option>)}</select></div>
+<div><label className="text-xs font-medium text-gray">Date</label><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Vendor/Supplier</label><input value={form.vendor||''} onChange={e=>setForm({...form,vendor:e.target.value})}/></div>
+<div><label className="text-xs font-medium text-gray">Status</label><select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>
+<option>Pending</option><option>Approved</option><option>Rejected</option></select></div>
+</div>
+<div className="mt-2"><label className="text-xs font-medium text-gray">Notes</label><textarea value={form.notes||''} onChange={e=>setForm({...form,notes:e.target.value})} rows={2}/></div>
+<div className="flex justify-between mt-4"><button className="btn btn-outline" onClick={()=>{setShow(false);setEdit(null)}}>Cancel</button>
+<button className="btn btn-primary" onClick={save}>{edit?'Update':'Add'} Expense</button></div>
+</Modal>
+</div>);
+}
+
+/* ===== ANNOUNCEMENTS ===== */
+function Announcements({data,set,currentUser,L,role}){
+const[show,setShow]=useState(false);
+const blank={title:'',message:'',priority:'Normal',date:NOW(),author:currentUser.name};
+const[form,setForm]=useState(blank);
+const save=()=>{if(!form.title||!form.message)return;
+const newAnn={...form,id:ID(),readBy:{[currentUser.id]:true}};
+set([...data,newAnn]);L('Posted Announcement',form.title);setShow(false);setForm({...blank,author:currentUser.name})};
+const markRead=(id)=>set(data.map(a=>a.id===id?{...a,readBy:{...(a.readBy||{}),[currentUser.id]:true}}:a));
+const sorted=[...data].sort((a,b)=>b.date.localeCompare(a.date));
+return(<div>
+<div className="flex justify-between items-center mb-4">
+<h3 className="font-bold">Company Announcements</h3>
+{canEdit(role)&&<button className="btn btn-primary" onClick={()=>{setForm({...blank,date:NOW(),author:currentUser.name});setShow(true)}}>+ Post Announcement</button>}
+</div>
+{sorted.length?sorted.map(a=>{
+const isRead=a.readBy&&a.readBy[currentUser.id];
+return(<div key={a.id} className="card" style={{borderLeft:'4px solid '+(a.priority==='Urgent'?'#ef4444':a.priority==='Important'?'#f59e0b':'#3b82f6')}}>
+<div className="flex justify-between items-start mb-2">
+<div>
+<h3 className="font-bold flex items-center gap-2">{a.title}
+{!isRead&&<span className="badge badge-red" style={{fontSize:10}}>NEW</span>}
+</h3>
+<p className="text-xs text-gray">{FD(a.date)} {'•'} Posted by {a.author}</p>
+</div>
+<div className="flex gap-2 items-center">
+<span className={'badge '+(a.priority==='Urgent'?'badge-red':a.priority==='Important'?'badge-yellow':'badge-blue')}>{a.priority}</span>
+{!isRead&&<button className="btn btn-outline btn-sm" onClick={()=>markRead(a.id)}>Mark Read</button>}
+{isRead&&<span className="text-xs text-gray">{'✓'} Read</span>}
+</div>
+</div>
+<p className="text-sm" style={{whiteSpace:'pre-wrap',lineHeight:1.6}}>{a.message}</p>
+{canEdit(role)&&<div className="mt-3 flex gap-2">
+<button className="btn btn-danger btn-sm" onClick={()=>{if(confirm('Delete this announcement?')){set(data.filter(x=>x.id!==a.id));L('Deleted Announcement',a.title)}}}>Delete</button>
+</div>}
+</div>)}):<div className="card" style={{textAlign:'center',padding:40}}>
+<div style={{fontSize:48,marginBottom:12}}>{'📢'}</div>
+<p className="text-gray text-sm">No announcements yet</p>
+{canEdit(role)&&<button className="btn btn-primary mt-4" onClick={()=>{setForm({...blank,date:NOW(),author:currentUser.name});setShow(true)}}>Post First Announcement</button>}
+</div>}
+<Modal open={show} onClose={()=>setShow(false)} title="Post Announcement" wide={false}>
+<div><label className="text-xs font-medium text-gray">Title*</label><input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Announcement title"/></div>
+<div className="grid-2 mt-2">
+<div><label className="text-xs font-medium text-gray">Priority</label>
+<select value={form.priority} onChange={e=>setForm({...form,priority:e.target.value})}>
+<option>Normal</option><option>Important</option><option>Urgent</option></select></div>
+<div><label className="text-xs font-medium text-gray">Date</label><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></div>
+</div>
+<div className="mt-2"><label className="text-xs font-medium text-gray">Message*</label>
+<textarea value={form.message} onChange={e=>setForm({...form,message:e.target.value})} rows={6} placeholder="Write your announcement here..."/></div>
+<div className="flex justify-between mt-4"><button className="btn btn-outline" onClick={()=>setShow(false)}>Cancel</button>
+<button className="btn btn-primary" onClick={save}>Post Announcement</button></div>
+</Modal>
+</div>);
+}
+
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
